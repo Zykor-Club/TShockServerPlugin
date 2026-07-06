@@ -1,0 +1,23 @@
+﻿简体中文:
+1. 本仓库所有插件均开源免费。
+2. 使用插件前请阅读每个插件的 README 文档。
+3. 使用时遇到问题请在 GitHub 提交 Issue。
+
+[文件作用]
+dll: 插件本体，放在 ServerPlugins 文件夹
+pdb: 插件的调试文件，和 dll 放一起即可
+md: 插件的 README 文档，介绍功能和用法
+LICENSE: 开源协议
+Plugins.json: 插件版本信息，用于自动更新
+
+English:
+1. All plugins in this repository are open-source and free to use.
+2. Please read each plugin's README documentation before using.
+3. For issues, submit on GitHub Issues.
+
+[File Functions]
+dll: Main plugin file, place in ServerPlugins folder
+pdb: Debug file, place alongside dll for detailed error info
+md: README documentation for each plugin
+LICENSE: Open-source license
+Plugins.json: Version info for auto-update
