@@ -1,0 +1,11 @@
+{
+  "template": [
+    "## Changes",
+    "{{#each releases}}",
+    "### {{#if this.tag}}{{this.tag}}{{else}}Latest{{/if}}",
+    "{{#each this.commits}}",
+    "- {{#if this.author}}@{{this.author}}{{/if}} {{this.message}}",
+    "{{/each}}",
+    "{{/each}}"
+  ]
+}

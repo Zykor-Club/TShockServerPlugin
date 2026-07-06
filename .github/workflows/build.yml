@@ -1,14 +1,148 @@
-name: Build Plugins
+name: Build and Publish Plugins
 
 on:
   push:
-    branches:
-      - "**"
+    branches: ["**"]
   pull_request:
   workflow_dispatch:
 
 jobs:
+  Lint:
+    runs-on: ubuntu-latest
+    name: Code Quality Check
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check plugin structure
+        shell: pwsh
+        run: |
+          $errors = @()
+          $srcDirs = Get-ChildItem src -Directory | Where-Object { $_.Name -ne "Shared" }
+          foreach ($dir in $srcDirs) {
+            $name = $dir.Name
+            $projPath = "$name/$name.csproj"
+            # Check csproj exists
+            if (-not (Test-Path "src/$projPath")) {
+              $errors += "MISSING csproj: src/$projPath"
+              continue
+            }
+            $csproj = Get-Content "src/$projPath" -Raw
+            if ($csproj -notmatch "template\.targets") {
+              $errors += "BAD csproj: src/$projPath - missing Import of template.targets"
+            }
+            if (-not (Test-Path "src/$name/manifest.json")) {
+              $errors += "MISSING manifest.json: src/$name/"
+            }
+            if (-not (Test-Path "src/$name/README.md")) {
+              $errors += "MISSING README.md: src/$name/"
+            }
+            # Check no DLLs or build artifacts
+            $dlls = Get-ChildItem "src/$name" -Recurse -Include *.dll,*.pdb,*.exe -ErrorAction SilentlyContinue
+            if ($dlls) {
+              $errors += "DLL/PDB/EXE in src/: $($dlls.Count) files found"
+            }
+          }
+          if ($errors.Count -gt 0) {
+            Write-Host "::error::Code quality issues found:"
+            $errors | ForEach-Object { Write-Host "::error::  $_" }
+            exit 1
+          }
+          Write-Host "All plugin structure checks passed! ($($srcDirs.Count) plugins)"
+
   Build:
+    runs-on: ubuntu-latest
+    name: Build
+    needs: Lint
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        env:
+          DOTNET_CLI_UI_LANGUAGE: zh-CN
+        with:
+          dotnet-version: |
+            9.x
+
+      - name: Restore NuGet
+        run: dotnet restore Plugin.slnx
+
+      - name: Build
+        shell: pwsh
+        run: |
+          dotnet build Plugin.slnx -c Release --no-restore
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Host "Build successful!"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Plugin-DLLs
+          path: out/Release/*.dll
+          compression-level: 9
+
+  Publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'Zykor-Club/TShockServerPlugin'
+    runs-on: ubuntu-latest
+    name: Publish Release
+    needs: Build
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        env:
+          DOTNET_CLI_UI_LANGUAGE: zh-CN
+        with:
+          dotnet-version: |
+            9.x
+
+      - name: Package plugins
+        shell: pwsh
+        run: |
+          ./scripts/publish-plugins-zip.ps1 -BuildType Release
+
+      - name: Upload Plugins.zip
+        uses: actions/upload-artifact@v7
+        with:
+          name: Plugins.zip
+          path: out/Plugins.zip
+          compression-level: 9
+
+      - name: Get changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v6
+        with:
+          configuration: ".config/log_config.json"
+        continue-on-error: true
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: V1.0.0.0
+          name: "最新版本"
+          body: |
+            # 插件下载
+            ### 📦 每次仓库更新，我们都会在这里发布最新的插件包。
+            ### 请在页面最底部找到 `Plugins.zip` 下载链接。
+            > [!CAUTION]
+            > 下载后需要使用 ZIP 解压工具解压，将 `.dll` 文件放入 `ServerPlugins` 文件夹。
+
+            ${{ steps.changelog.outputs.changelog }}
+          artifacts: out/Plugins.zip
+          allowUpdates: true
+          removeArtifacts: true
+          token: ${{ secrets.GITHUB_TOKEN }}
     runs-on: ubuntu-latest
     name: Build Plugins
     permissions:
