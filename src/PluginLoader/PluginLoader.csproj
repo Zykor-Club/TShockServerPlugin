@@ -1,0 +1,7 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <Import Project="..\..\template.targets" />
+    <PropertyGroup>
+        <AssemblyName>PluginLoader</AssemblyName>
+        <RootNamespace>PluginLoader</RootNamespace>
+    </PropertyGroup>
+</Project>
