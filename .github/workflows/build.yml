@@ -23,33 +23,28 @@ jobs:
           foreach ($dir in $srcDirs) {
             $name = $dir.Name
             $projPath = "$name/$name.csproj"
-            # Check csproj exists
             if (-not (Test-Path "src/$projPath")) {
               $errors += "MISSING csproj: src/$projPath"
               continue
             }
             $csproj = Get-Content "src/$projPath" -Raw
             if ($csproj -notmatch "template\.targets") {
-              $errors += "BAD csproj: src/$projPath - missing Import of template.targets"
+              $errors += "BAD csproj: missing template.targets import"
             }
             if (-not (Test-Path "src/$name/manifest.json")) {
-              $errors += "MISSING manifest.json: src/$name/"
+              $errors += "MISSING manifest.json"
             }
             if (-not (Test-Path "src/$name/README.md")) {
-              $errors += "MISSING README.md: src/$name/"
+              $errors += "MISSING README.md"
             }
-            # Check no DLLs or build artifacts
             $dlls = Get-ChildItem "src/$name" -Recurse -Include *.dll,*.pdb,*.exe -ErrorAction SilentlyContinue
-            if ($dlls) {
-              $errors += "DLL/PDB/EXE in src/: $($dlls.Count) files found"
-            }
+            if ($dlls) { $errors += "DLL/PDB/EXE in src/" }
           }
           if ($errors.Count -gt 0) {
-            Write-Host "::error::Code quality issues found:"
-            $errors | ForEach-Object { Write-Host "::error::  $_" }
+            $errors | ForEach-Object { Write-Host "::error::$_" }
             exit 1
           }
-          Write-Host "All plugin structure checks passed! ($($srcDirs.Count) plugins)"
+          Write-Host "All checks passed"
 
   Build:
     runs-on: ubuntu-latest
@@ -109,8 +104,7 @@ jobs:
 
       - name: Package plugins
         shell: pwsh
-        run: |
-          ./scripts/publish-plugins-zip.ps1 -BuildType Release
+        run: ./scripts/publish-plugins-zip.ps1 -BuildType Release
 
       - name: Upload Plugins.zip
         uses: actions/upload-artifact@v7
@@ -133,14 +127,11 @@ jobs:
           name: "最新版本"
           body: |
             # 插件下载
-            ### 📦 每次仓库更新，我们都会在这里发布最新的插件包。
-            ### 请在页面最底部找到 `Plugins.zip` 下载链接。
-            > [!CAUTION]
-            > 下载后需要使用 ZIP 解压工具解压，将 `.dll` 文件放入 `ServerPlugins` 文件夹。
-
+            ### 每次仓库更新发布最新插件包
+            ### 下载 ZIP 后解压，将 .dll 放入 ServerPlugins 文件夹
+            ---
             ${{ steps.changelog.outputs.changelog }}
-         artifacts: out/Plugins.zip
+          artifacts: out/Plugins.zip
           allowUpdates: true
-         removeArtifacts: true
-         token: ${{ secrets.GITHUB_TOKEN }}
-
+          removeArtifacts: true
+          token: ${{ secrets.GITHUB_TOKEN }}
