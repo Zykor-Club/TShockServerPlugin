@@ -1,0 +1,47 @@
+﻿name: 报告 BUG | Report a Bug
+description: 提交插件 BUG | Submit a plugin bug
+title: '[BUG] '
+labels: bug
+body:
+  - type: checkboxes
+    attributes:
+      label: 确认 | Confirmation
+      description: 提交前请确认
+      options:
+        - label: 我已确认 BUG 可以复现 | I confirm the bug is reproducible
+          required: true
+        - label: 我已确认使用的是最新版本的插件 | I confirm using the latest plugin version
+          required: true
+  - type: input
+    attributes:
+      label: 插件名称 | Plugin Name
+      description: 哪个插件出现了 BUG？
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: 插件版本 | Plugin Version
+      description: 插件版本号是多少？
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: BUG 描述 | Description
+      description: 清晰地描述 BUG 的表现
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 复现步骤 | Steps to Reproduce
+      description: 如何复现这个 BUG？
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 错误日志 | Error Log
+      description: 如果服务器有报错，请粘贴相关日志（可选）
+      render: text

@@ -1,0 +1,13 @@
+﻿# 默认所有者（组织）
+* @Zykor-Club/core
+
+# CI/CD 变更需要核心团队审查
+/.github/workflows/ @Zykor-Club/core
+
+# 共享基础设施
+/src/Shared/ @Zykor-Club/core
+template.targets @Zykor-Club/core
+Plugin.slnx @Zykor-Club/core
+
+# 各插件所有者（协作者加入后修改此处）
+# /src/PluginName/ @贡献者用户名

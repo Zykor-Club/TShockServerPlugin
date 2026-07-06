@@ -1,0 +1,8 @@
+﻿blank_issues_enabled: true
+contact_links:
+  - name: 插件文档 / 使用说明
+    url: https://github.com/Zykor-Club/TShockServerPlugin?tab=readme-ov-file
+    about: 点击链接查看插件文档
+  - name: 不会解压 ZIP
+    url: https://www.baidu.com/s?wd=zip+%E8%A7%A3%E5%8E%8B
+    about: 请自行搜索 ZIP 解压教程
