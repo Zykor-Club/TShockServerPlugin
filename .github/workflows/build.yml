@@ -113,13 +113,6 @@ jobs:
           path: out/Plugins.zip
           compression-level: 9
 
-      - name: Get changelog
-        id: changelog
-        uses: mikepenz/release-changelog-builder-action@v6
-        with:
-          configuration: ".config/log_config.json"
-        continue-on-error: true
-
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
@@ -127,10 +120,9 @@ jobs:
           name: "最新版本"
           body: |
             # 插件下载
-            ### 每次仓库更新发布最新插件包
-            ### 下载 ZIP 后解压，将 .dll 放入 ServerPlugins 文件夹
-            ---
-            ${{ steps.changelog.outputs.changelog }}
+            ### 每次仓库更新都会在这里发布最新的插件包。
+            ### 下载 Plugins.zip 后解压，将 .dll 放入 ServerPlugins 文件夹。
+            ### 插件列表和文档：https://github.com/Zykor-Club/TShockServerPlugin
           artifacts: out/Plugins.zip
           allowUpdates: true
           removeArtifacts: true
