@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <Import Project="..\..\template.targets" />
+    <PropertyGroup>
+        <AssemblyName>PlayerMail</AssemblyName>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="MySql.Data" Version="9.2.0" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    </ItemGroup>
+</Project>
