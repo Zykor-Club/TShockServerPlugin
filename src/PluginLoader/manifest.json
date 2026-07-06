@@ -1,0 +1,8 @@
+{
+  "README": {
+    "Description": "热加载插件管理 - 支持动态加载/卸载/重载插件，自动从仓库更新"
+  },
+  "README.en-US": {
+    "Description": "Hot-reload plugin manager - Dynamic load/unload/reload, auto-update from repository"
+  }
+}
