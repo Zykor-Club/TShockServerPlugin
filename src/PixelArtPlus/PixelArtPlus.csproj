@@ -13,6 +13,6 @@
         <EmbeddedResource Include="palette_complete.json" LogicalName="palette_complete.json" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="SixLabors.ImageSharp" Version="3.1.7" />
+        <PackageReference Include="SixLabors.ImageSharp" Version="4.0.0" />
     </ItemGroup>
 </Project>
