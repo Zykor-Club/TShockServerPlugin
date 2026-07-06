@@ -1,0 +1,8 @@
+﻿{
+  "README": {
+    "Description": "高质量像素画生成插件 - 支持颜料、抖动、重力物块排除"
+  },
+  "README.en-US": {
+    "Description": "High-quality pixel art map generator - Paint, dithering, gravity block exclusion"
+  }
+}

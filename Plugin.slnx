@@ -1,0 +1,12 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+  </Configurations>
+  <Folder Name="/Files/">
+    <File Path="template.targets" />
+  </Folder>
+  <Project Path="src/PixelArtPlus/PixelArtPlus.csproj" />
+  <Project Path="src/AIAgent/AIAgent.csproj" />
+  <Project Path="src/PlayerEmail/PlayerMail.csproj" />
+</Solution>
