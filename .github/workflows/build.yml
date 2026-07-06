@@ -139,8 +139,8 @@ jobs:
             > 下载后需要使用 ZIP 解压工具解压，将 `.dll` 文件放入 `ServerPlugins` 文件夹。
 
             ${{ steps.changelog.outputs.changelog }}
-          artifacts: out/Plugins.zip
-         allowUpdates: true
-          removeArtifacts: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+         artifacts: out/Plugins.zip
+          allowUpdates: true
+         removeArtifacts: true
+         token: ${{ secrets.GITHUB_TOKEN }}
 
