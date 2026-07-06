@@ -1,0 +1,8 @@
+﻿{
+  "README": {
+    "Description": "自定义死亡消息 - 支持所有死亡归因判断（PVP/NPC/Boss/弹幕/环境）"
+  },
+  "README.en-US": {
+    "Description": "Custom Death Messages - Full death attribution support (PVP/NPC/Boss/Projectile/Environment)"
+  }
+}
