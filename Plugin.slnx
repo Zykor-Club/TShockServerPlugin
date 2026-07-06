@@ -9,5 +9,7 @@
   <Project Path="src/PixelArtPlus/PixelArtPlus.csproj" />
   <Project Path="src/AIAgent/AIAgent.csproj" />
   <Project Path="src/PlayerEmail/PlayerEmail.csproj" />
+  <Project Path="src/CustomDeathMessages/CustomDeathMessages.csproj" />
 </Solution>
+
 
