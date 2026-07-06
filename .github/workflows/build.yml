@@ -1,4 +1,4 @@
-name: Build and Publish Plugins
+﻿name: Build and Publish Plugins
 
 on:
   push:
@@ -140,34 +140,7 @@ jobs:
 
             ${{ steps.changelog.outputs.changelog }}
           artifacts: out/Plugins.zip
-          allowUpdates: true
+         allowUpdates: true
           removeArtifacts: true
           token: ${{ secrets.GITHUB_TOKEN }}
-    runs-on: ubuntu-latest
-    name: Build Plugins
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        env:
-          DOTNET_CLI_UI_LANGUAGE: zh-CN
-        with:
-          dotnet-version: |
-            9.x
-
-      - name: Build
-        shell: pwsh
-        run: |
-          dotnet build Plugin.slnx -c Release
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: Plugins
-          path: out/Release/*.dll
-          compression-level: 9
