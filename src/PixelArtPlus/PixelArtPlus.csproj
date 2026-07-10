@@ -1,5 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-    <Import Project="..\..\..\template.targets" />
+    <Import Project="..\..\template.targets" />
     <PropertyGroup>
         <TargetFramework>net9.0</TargetFramework>
         <AssemblyName>PixelArtPlus</AssemblyName>
@@ -17,3 +17,4 @@
         <PackageReference Include="SixLabors.ImageSharp" Version="3.1.7" />
     </ItemGroup>
 </Project>
+

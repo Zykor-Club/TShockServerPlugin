@@ -104,17 +104,18 @@ foreach ($proj in $projects) {
         $asmName = `$true
     } catch {
         # Fallback: use filename
-        [System.IO.Path]::GetFileNameWithoutExtension($csprojPath2 = `$true)
+        $asmName = [System.IO.Path]::GetFileNameWithoutExtension($csprojPath2)
+        $assemblyNames[$asmName] = $true
     }
 }
-Write-Host "Allowed assemblies: $((($assemblyNames.Keys | Sort-Object) -join ', ')"
+Write-Host "Allowed assemblies: $((($assemblyNames.Keys | Sort-Object) -join ', '))"
 
 $outDir = "./out/$BuildType"
 if (Test-Path $outDir) {
     # Only copy plugin DLLs and PDBs, not NuGet transitive dependencies
     foreach ($dll in @(Get-ChildItem "$outDir/*.dll" -ErrorAction SilentlyContinue)) {
         $baseName = [System.IO.Path]::GetFileNameWithoutExtension($dll.Name)
-                if ($assemblyNames.ContainsKey($baseName) -or ($baseName -eq "0Harmony")) {
+                if ($assemblyNames.ContainsKey($baseName) -or ($baseName -eq "0Harmony") -or ($baseName -match "^SixLabors\.ImageSharp|^MySql\.Data|^Microsoft\.Data\.Sqlite|^SQLitePCLRaw") -or ($baseName -eq "Newtonsoft.Json" -and $false)) {
             Copy-Item $dll.FullName ./publish/ -Force
             $pdbFile = [System.IO.Path]::Combine($dll.DirectoryName, "$baseName.pdb")
             if (Test-Path $pdbFile) { Copy-Item $pdbFile ./publish/ -Force }
@@ -126,7 +127,7 @@ if (Test-Path $outDir) {
         if (Test-Path $alt) {
             foreach ($dll in @(Get-ChildItem "$alt/*.dll" -ErrorAction SilentlyContinue)) {
                 $baseName = [System.IO.Path]::GetFileNameWithoutExtension($dll.Name)
-                if ($assemblyNames.ContainsKey($baseName) -or ($baseName -eq "0Harmony")) {
+                if ($assemblyNames.ContainsKey($baseName) -or ($baseName -eq "0Harmony") -or ($baseName -match "^SixLabors\.ImageSharp|^MySql\.Data|^Microsoft\.Data\.Sqlite|^SQLitePCLRaw") -or ($baseName -eq "Newtonsoft.Json" -and $false)) {
                     Copy-Item $dll.FullName ./publish/ -Force
                     $pdbFile = [System.IO.Path]::Combine($dll.DirectoryName, "$baseName.pdb")
                     if (Test-Path $pdbFile) { Copy-Item $pdbFile ./publish/ -Force }
@@ -164,4 +165,5 @@ if (-not $NoZip) {
 }
 
 Write-Host "Publish complete! Output: ./publish/"
+
 
