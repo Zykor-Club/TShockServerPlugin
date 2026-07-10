@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 [CmdletBinding()]
 param(
     [switch]$NoBuild,
@@ -93,16 +93,45 @@ Set-Content -Path "./publish/Plugins.json" -Value $pluginsJson -Encoding UTF8
 Write-Host "Plugins.json generated with $($plugins.Count) plugins"
 
 # Step 4: Copy DLLs and READMEs
+$assemblyNames = @{}
+foreach ($proj in $projects) {
+    $csprojPath2 = $proj.Path
+    try {
+        $csprojXml = [xml](Get-Content $csprojPath2 -Raw)
+        $pgList2 = @($csprojXml.Project.PropertyGroup)
+        $asmProp2 = $pgList2 | Where-Object { $_.AssemblyName } | Select-Object -First 1
+        $asmName = if ($asmProp2) { $asmProp2.AssemblyName } else { [System.IO.Path]::GetFileNameWithoutExtension($csprojPath2) }
+        $asmName = `$true
+    } catch {
+        # Fallback: use filename
+        [System.IO.Path]::GetFileNameWithoutExtension($csprojPath2 = `$true)
+    }
+}
+Write-Host "Allowed assemblies: $((($assemblyNames.Keys | Sort-Object) -join ', ')"
+
 $outDir = "./out/$BuildType"
 if (Test-Path $outDir) {
-    Copy-Item "$outDir/*.dll" ./publish/ -Force -ErrorAction SilentlyContinue
-    Copy-Item "$outDir/*.pdb" ./publish/ -Force -ErrorAction SilentlyContinue
+    # Only copy plugin DLLs and PDBs, not NuGet transitive dependencies
+    foreach ($dll in @(Get-ChildItem "$outDir/*.dll" -ErrorAction SilentlyContinue)) {
+        $baseName = [System.IO.Path]::GetFileNameWithoutExtension($dll.Name)
+                if ($assemblyNames.ContainsKey($baseName) -or ($baseName -eq "0Harmony")) {
+            Copy-Item $dll.FullName ./publish/ -Force
+            $pdbFile = [System.IO.Path]::Combine($dll.DirectoryName, "$baseName.pdb")
+            if (Test-Path $pdbFile) { Copy-Item $pdbFile ./publish/ -Force }
+        }
+    }
 } else {
     Write-Warning "Build output directory '$outDir' not found, copying from alternative locations..."
-    # Fallback: try common output paths
     foreach ($alt in @("./out/Release", "./bin/Release/net9.0")) {
         if (Test-Path $alt) {
-            Copy-Item "$alt/*.dll" ./publish/ -Force -ErrorAction SilentlyContinue
+            foreach ($dll in @(Get-ChildItem "$alt/*.dll" -ErrorAction SilentlyContinue)) {
+                $baseName = [System.IO.Path]::GetFileNameWithoutExtension($dll.Name)
+                if ($assemblyNames.ContainsKey($baseName) -or ($baseName -eq "0Harmony")) {
+                    Copy-Item $dll.FullName ./publish/ -Force
+                    $pdbFile = [System.IO.Path]::Combine($dll.DirectoryName, "$baseName.pdb")
+                    if (Test-Path $pdbFile) { Copy-Item $pdbFile ./publish/ -Force }
+                }
+            }
         }
     }
 }
@@ -135,3 +164,4 @@ if (-not $NoZip) {
 }
 
 Write-Host "Publish complete! Output: ./publish/"
+

@@ -1,0 +1,8 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <Import Project="..\..\..\template.targets" />
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <AssemblyName>{NAME}</AssemblyName>
+        <RootNamespace>{NAME}</RootNamespace>
+    </PropertyGroup>
+</Project>

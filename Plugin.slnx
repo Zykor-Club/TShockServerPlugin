@@ -6,11 +6,12 @@
   <Folder Name="/Files/">
     <File Path="template.targets" />
   </Folder>
-  <Project Path="src/PixelArtPlus/PixelArtPlus.csproj" />
-  <Project Path="src/PlayerEmail/PlayerEmail.csproj" />
-  <Project Path="src/CustomDeathMessages/CustomDeathMessages.csproj" />
-  <Project Path="src/PluginLoader/PluginLoader.csproj" />
-  <Project Path="src/BossCommandExecutor/BossCommandExecutor.csproj" />
+  <Project Path="src/Gameplay/PixelArtPlus/PixelArtPlus.csproj" />
+  <Project Path="src/Management/PlayerEmail/PlayerEmail.csproj" />
+  <Project Path="src/Gameplay/CustomDeathMessages/CustomDeathMessages.csproj" />
+  <Project Path="src/Management/PluginLoader/PluginLoader.csproj" />
+  <Project Path="src/Gameplay/BossCommandExecutor/BossCommandExecutor.csproj" />
 </Solution>
+
 
 
