@@ -1,0 +1,8 @@
+﻿{
+  "README": {
+    "Description": "Boss 击杀后自动执行预设命令，支持伤害排行广播、浮动文本"
+  },
+  "README.en-US": {
+    "Description": "Execute preset commands after boss kills, with damage ranking and floating text"
+  }
+}
