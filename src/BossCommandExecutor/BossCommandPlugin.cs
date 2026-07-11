@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Terraria;
+using Terraria.GameContent;
 using TerrariaApi.Server;
 using TShockAPI;
 using TShockAPI.Hooks;
@@ -14,10 +15,9 @@ namespace BossCommandExecutor
     {
         public override string Name => "BossCommandExecutor";
         public override string Author => "星梦XM";
-        public override Version Version => new(2, 0, 0);
+        public override Version Version => new(1, 5, 0);
         public override string Description => "Boss击杀后自动执行预设命令";
 
-        // 只保留必要的服务
         private readonly BossTracker _bossTracker;
         private readonly CommandProcessor _commandProcessor;
         private readonly DamageRankBroadcaster _damageRanker;
@@ -38,11 +38,9 @@ namespace BossCommandExecutor
             LoadConfig();
             GeneralHooks.ReloadEvent += OnConfigReload;
             
-            // 只需要这两个事件：生成和死亡
             ServerApi.Hooks.NpcSpawn.Register(this, OnNpcSpawn);
             ServerApi.Hooks.NpcKilled.Register(this, OnNpcKilled);
             
-            // 伤害排行钩子
             On.Terraria.GameContent.BossDamageTracker.OnBossKilled += OnBossKilledHook;
             
             TShock.Log.ConsoleInfo($"[BossCommand] 插件已加载 v{Version} | 极简逻辑版");
@@ -76,10 +74,6 @@ namespace BossCommandExecutor
         }
         private void OnConfigReload(ReloadEventArgs args) => LoadConfig(args);
 
-        /// <summary>
-        /// 【核心逻辑】Boss生成时记录实例
-        /// 不管怎么生成的（物品/自然/命令），只要生成了就记录
-        /// </summary>
         private void OnNpcSpawn(NpcSpawnEventArgs args)
         {
             if (args.Handled || !Config.Enabled) return;
@@ -87,36 +81,33 @@ namespace BossCommandExecutor
             var npc = Main.npc[args.NpcId];
             if (npc?.active != true) return;
 
-            var bossConfig = FindBossConfig(npc.netID);
+            var bossConfig = FindBossConfig(npc.type);
             if (bossConfig == null) return;
 
-            // 记录这个实例：whoAmI是实例ID，netID是Boss类型
-            _bossTracker.MarkAsAlive(npc.whoAmI, npc.netID, bossConfig.Name);
+            _bossTracker.MarkAsAlive(npc.whoAmI, npc.type, bossConfig.Name);
         }
 
-        /// <summary>
-        /// 【核心逻辑】Boss死亡时执行命令
-        /// 使用whoAmI防止多体节Boss（毁灭者/世界吞噬者）重复触发
-        /// </summary>
         private void OnNpcKilled(NpcKilledEventArgs args)
         {
-            if (args.npc?.active != true || !Config.Enabled) return;
+            if (args.npc == null || args.npc.type <= 0 || !Config.Enabled) return;
 
             var npc = args.npc;
-            var config = FindBossConfig(npc.netID);
+            var config = FindBossConfig(npc.type);
             if (config == null) return;
 
-            // 核心：检查这个实例是否被追踪过（生成时MarkAsAlive的）
-            // 多体节Boss（134/135/136）只有第一个死亡的体节能通过检查，其他体节会返回false
-            if (!_bossTracker.TryProcessDeath(npc.whoAmI, npc.netID))
+            if (BossTracker.MultiSegmentBossMap.ContainsKey(npc.type))
             {
-                TShock.Log.ConsoleDebug($"[BossCommand] 跳过重复或未追踪的死亡: {npc.FullName} (Idx:{npc.whoAmI})");
+                TShock.Log.ConsoleDebug($"[BossCommand] 多体节Boss {npc.FullName} 体节死亡，等待OnBossKilled钩子处理");
                 return;
             }
 
-            // 如果配置了RequireSummoned=false，也执行（兼容旧配置）
-            // 实际上现在只要TryProcessDeath返回true，就是服务器里生成过的Boss
-            if (config.RequireSummoned && !_bossTracker.WasEverSpawned(npc.netID))
+            if (!_bossTracker.TryProcessDeath(npc.whoAmI, npc.type))
+            {
+                TShock.Log.ConsoleDebug($"[BossCommand] 跳过重复或未追踪的死亡: {npc.FullName} (Idx:{npc.whoAmI}, Type:{npc.type})");
+                return;
+            }
+
+            if (config.RequireSummoned && !WasBossSpawned(npc.type))
             {
                 TShock.Log.ConsoleDebug($"[BossCommand] 未记录生成，跳过: {npc.FullName}");
                 return;
@@ -125,14 +116,56 @@ namespace BossCommandExecutor
             Task.Run(() => ProcessBossKill(config, npc));
         }
 
+        private bool WasBossSpawned(int npcType)
+        {
+            if (_bossTracker.WasEverSpawned(npcType))
+                return true;
+
+            if (BossTracker.MultiSegmentBossMap.TryGetValue(npcType, out var segmentTypes))
+            {
+                foreach (var type in segmentTypes)
+                {
+                    if (_bossTracker.WasEverSpawned(type))
+                        return true;
+                }
+            }
+
+            var customDef = NPCDamageTracker.CustomBossDefinitions[npcType];
+            if (customDef != null && customDef.NPCTypes != null)
+            {
+                foreach (var type in customDef.NPCTypes)
+                {
+                    if (_bossTracker.WasEverSpawned(type))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
         private void OnBossKilledHook(
             On.Terraria.GameContent.BossDamageTracker.orig_OnBossKilled orig,
             Terraria.GameContent.BossDamageTracker self, NPC npc)
         {
             orig(self, npc);
-            if (!Config.Enabled || !Config.AutoBroadcastDamageRanking) return;
-            if (FindBossConfig(npc.netID) == null) return;
-            _damageRanker.Broadcast(self, npc);
+            if (!Config.Enabled) return;
+
+            var config = FindBossConfig(npc.type);
+            if (config == null) return;
+
+            if (config.RequireSummoned && !WasBossSpawned(npc.type))
+            {
+                TShock.Log.ConsoleDebug($"[BossCommand] OnBossKilled: 未记录生成，跳过: {config.Name}");
+                return;
+            }
+
+            TShock.Log.ConsoleInfo($"[BossCommand] OnBossKilled钩子触发: {config.Name}");
+            Task.Run(() => ProcessBossKill(config, npc));
+
+            if (Config.AutoBroadcastDamageRanking)
+            {
+                _damageRanker.Broadcast(self, npc);
+            }
         }
 
         private async Task ProcessBossKill(Configuration.BossCommandConfig config, NPC npc)
@@ -161,7 +194,10 @@ namespace BossCommandExecutor
                     string msg = Config.BroadcastFormat
                         .Replace("{boss}", config.Name)
                         .Replace("{count}", successCount.ToString());
-                    TShock.Utils.Broadcast(msg, Config.BroadcastColor.R, Config.BroadcastColor.G, Config.BroadcastColor.B);
+                    foreach (var player in TShock.Players.Where(p => p?.Active == true))
+                    {
+                        player.SendMessage(msg, Config.BroadcastColor.R, Config.BroadcastColor.G, Config.BroadcastColor.B);
+                    }
                 }
 
                 _floatingTextService.ShowForBoss(config, npc);
@@ -177,7 +213,6 @@ namespace BossCommandExecutor
         {
             var commands = new List<string>();
             
-            // 首次击杀
             if (!config.FirstKillDone && config.FirstKillCommands?.Count > 0)
             {
                 commands.AddRange(config.FirstKillCommands);
@@ -185,7 +220,6 @@ namespace BossCommandExecutor
                 TShock.Log.ConsoleInfo($"[BossCommand] 触发首次击杀命令");
             }
             
-            // 常规命令
             if (config.Commands?.Count > 0)
                 commands.AddRange(config.Commands);
             
