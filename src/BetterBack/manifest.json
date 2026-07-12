@@ -1,0 +1,8 @@
+{
+  "README": {
+    "Description": "更好的死亡返回 - 记录死亡位置，支持快速返回、自定义Buff、无敌时间和自动返回"
+  },
+  "README.en-US": {
+    "Description": "BetterBack - Death return teleportation with custom buffs, god mode, and auto-return"
+  }
+}
