@@ -1,4 +1,4 @@
-﻿<Solution>
+<Solution>
   <Configurations>
     <Platform Name="Any CPU" />
     <Platform Name="x64" />
@@ -11,8 +11,5 @@
   <Project Path="src/CustomDeathMessages/CustomDeathMessages.csproj" />
   <Project Path="src/PluginLoader/PluginLoader.csproj" />
   <Project Path="src/BossCommandExecutor/BossCommandExecutor.csproj" />
+  <Project Path="src/BetterBack/BetterBack.csproj" />
 </Solution>
-
-
-
-
