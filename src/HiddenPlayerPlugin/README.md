@@ -1,13 +1,11 @@
 # HiddenPlayerPlugin 隐藏玩家插件
 - **作者**: 星梦
 - **版本**: v1.1.0
+- 出自：https://github.com/Zykor-Club/TShockServerPlugin/src/HiddenPlayerPlugin
 
 ## 功能概述
 - 隐藏特定玩家的加入离开服务器广播消息
-- 在 `/who`、`/playing`、`/online` 等查询在线玩家中不显示隐藏玩家
-- 使用 Harmony Patch 修改 TShock 内部方法
-- 支持过滤 MOTD 中 `%players%` 变量显示的玩家列表
-- 支持过滤 `%onlineplayers%` 变量的玩家计数
+- 在 `/who`、`/playing`、`/online` 等查询在线玩家的功能中不显示隐藏玩家
 
 ## 指令
 | 语法 | 权限 | 说明 |
@@ -29,22 +27,9 @@
 }
 ```
 
-## 配置说明
-| 配置项 | 类型 | 默认值 | 说明 |
-|--------|------|:------:|------|
-| HiddenPlayerNames | array | [] | 隐藏玩家名称列表 |
-
-## 权限
-| 权限节点 | 说明 |
-|----------|------|
-| `hiddenplayer.admin` | 管理隐藏玩家列表 |
-
 ## 插件版本
 ### v1.1.0
 - 使用 Harmony Patch 修改 TShock 内部方法
-- 支持过滤 MOTD 中 `%players%` 变量显示的玩家列表
-- 支持过滤 `/who`、`/playing`、`/online` 命令中的玩家列表
-- 支持过滤 `%onlineplayers%` 变量的玩家计数
 - 移除权限系统，所有玩家统一看不到隐藏玩家
 
 ### v1.0.0
