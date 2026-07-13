@@ -12,4 +12,5 @@
   <Project Path="src/PluginLoader/PluginLoader.csproj" />
   <Project Path="src/BossCommandExecutor/BossCommandExecutor.csproj" />
   <Project Path="src/BetterBack/BetterBack.csproj" />
+  <Project Path="src/HiddenPlayerPlugin/HiddenPlayerPlugin.csproj" />
 </Solution>
