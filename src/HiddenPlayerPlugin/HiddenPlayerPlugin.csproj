@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <Import Project="..\..\template.targets" />
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <AssemblyName>HiddenPlayerPlugin</AssemblyName>
+        <RootNamespace>HiddenPlayerPlugin</RootNamespace>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="HarmonyLib" Version="2.3.3" />
+    </ItemGroup>
+</Project>
