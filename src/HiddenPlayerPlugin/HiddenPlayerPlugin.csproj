@@ -6,6 +6,7 @@
         <RootNamespace>HiddenPlayerPlugin</RootNamespace>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="HarmonyLib" Version="2.3.3" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+        <PackageReference Include="Lib.Harmony" Version="2.4.2" />
     </ItemGroup>
 </Project>
