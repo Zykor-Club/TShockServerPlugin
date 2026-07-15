@@ -1,8 +1,8 @@
 {
   "README": {
-    "Description": "隐藏玩家插件 - 隐藏特定玩家的加入广播和在线列表显示，支持 Harmony Patch 修改 TShock 内部方法"
+    "Description": "隐藏特定玩家 - 支持静默进服、隐身、在线列表过滤"
   },
   "README.en-US": {
-    "Description": "HiddenPlayerPlugin - Hide specific players' join broadcasts and online list display, with Harmony Patch support"
+    "Description": "Hidden Player Plugin - Silent join, invisibility, and online player list filtering"
   }
 }
