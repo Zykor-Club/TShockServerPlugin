@@ -1,0 +1,8 @@
+{
+  "README": {
+    "Description": "物品自选池插件，让玩家从预设物品池中自选领取物品，支持按次数和按物品两种模式"
+  },
+  "README.en-US": {
+    "Description": "Item self-selection pool plugin, allowing players to pick items from preset pools with configurable limits"
+  }
+}
