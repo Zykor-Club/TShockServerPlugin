@@ -7,10 +7,10 @@
     <File Path="template.targets" />
   </Folder>
   <Project Path="src/PixelArtPlus/PixelArtPlus.csproj" />
-  <Project Path="src/PlayerEmail/PlayerEmail.csproj" />
   <Project Path="src/CustomDeathMessages/CustomDeathMessages.csproj" />
   <Project Path="src/PluginLoader/PluginLoader.csproj" />
   <Project Path="src/BossCommandExecutor/BossCommandExecutor.csproj" />
   <Project Path="src/BetterBack/BetterBack.csproj" />
   <Project Path="src/HiddenPlayerPlugin/HiddenPlayerPlugin.csproj" />
+  <Project Path="src/ItemPool/ItemPool.csproj" />
 </Solution>
