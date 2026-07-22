@@ -5,8 +5,6 @@
 ## 功能概述
 - 服主通过配置文件预设物品池，玩家自选领取物品
 - 支持两种领取模式："按物品"（每件物品限领一次）和"按次数"（每人限领 N 次）
-- 支持管理员动态开关物品池、热重载配置
-- 领取记录持久化到 tshock.sqlite，服务器重启不丢失
 - 背包满时拒绝领取，不消耗次数
 - 物品列表分页显示（每页 30 件），支持用 `[i:ID]` 标签预览物品
 
@@ -82,8 +80,7 @@
 - 首次发布
 - 支持按物品和按次数两种领取模式
 - 支持池开关、热重载、数据重置
-- 分页显示、渐变色 UI
 
 ## 反馈
-- 优先发 issue -> https://github.com/Zykor-Club/TShockServerPlugin/issues
+- 优先发 issue -> https://github.com/Zykor-Club/TShockServerPlugin
 - 次优先：TShock官方群：816771079
