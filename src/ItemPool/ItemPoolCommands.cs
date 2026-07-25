@@ -198,7 +198,7 @@ public static class ItemPoolCommands
         ShowPoolInfo(args.Player, pool, page);
     }
 
-    /// <summary>显示单个池的物品信息</summary>
+    /// <summary>显示单个池的物品信息（共用逻辑）</summary>
     private static void ShowPoolInfo(TSPlayer player, ItemPoolEntry pool, int page)
     {
         var allItems = pool.物品列表;
@@ -237,16 +237,26 @@ public static class ItemPoolCommands
             lines.Add($"[{pool.池名称}] 物品列表:");
 
         int startIndex = (page - 1) * ItemsPerPage;
-        for (int i = 0; i < pageItems.Count; i++)
+        const int cols = 6;
+        
+        for (int i = 0; i < pageItems.Count; i += cols)
         {
-            var item = pageItems[i];
-            int num = startIndex + i + 1;
-            var tag = item.数量 > 1
-                ? $"[i/s{item.数量}:{item.物品ID}]"
-                : $"[i:{item.物品ID}]";
-            string prefixStr = item.前缀 > 0 ? $" (前缀:{item.前缀})" : "";
-            string pickedStr = pickedItems.Contains(item.物品ID) ? " [已领取]" : "";
-            lines.Add($"{num}. {tag}{prefixStr}{pickedStr}");
+            var rowItems = new List<string>();
+            for (int j = 0; j < cols; j++)
+            {
+                int idx = i + j;
+                if (idx >= pageItems.Count)
+                    break;
+                var item = pageItems[idx];
+                int num = startIndex + idx + 1;
+                var tag = item.数量 > 1
+                    ? $"[i/s{item.数量}:{item.物品ID}]"
+                    : $"[i:{item.物品ID}]";
+                string prefixStr = item.前缀 > 0 ? $" (前缀:{item.前缀})" : "";
+                string pickedStr = pickedItems.Contains(item.物品ID) ? " [已领取]" : "";
+                rowItems.Add($"{num}. {tag}{prefixStr}{pickedStr}");
+            }
+            lines.Add(string.Join("   ", rowItems));
         }
 
         if (totalPages > 1)
