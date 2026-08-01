@@ -53,7 +53,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         env:
           DOTNET_CLI_UI_LANGUAGE: zh-CN
         with:
@@ -85,7 +85,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         env:
           DOTNET_CLI_UI_LANGUAGE: zh-CN
         with:
