@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <Import Project="..\..\template.targets" />
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <AssemblyName>ItemHeldMessage</AssemblyName>
+        <RootNamespace>ItemHeldMessage</RootNamespace>
+        <Version>1.1.4.0</Version>
+        <Authors>淦 &amp; 星梦XM</Authors>
+        <Description>手持物品显示提示与自动执行命令</Description>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    </ItemGroup>
+</Project>
