@@ -13,4 +13,5 @@
   <Project Path="src/BetterBack/BetterBack.csproj" />
   <Project Path="src/HiddenPlayerPlugin/HiddenPlayerPlugin.csproj" />
   <Project Path="src/ItemPool/ItemPool.csproj" />
+  <Project Path="src/ItemHeldMessage/ItemHeldMessage.csproj" />
 </Solution>
