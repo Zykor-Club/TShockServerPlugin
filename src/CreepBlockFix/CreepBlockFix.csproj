@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <Import Project="..\..\template.targets" />
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <AssemblyName>CreepBlockFix</AssemblyName>
+        <RootNamespace>CreepBlockFix</RootNamespace>
+        <Version>1.0.0.0</Version>
+        <Authors>星梦</Authors>
+        <Description>修复 TShock 猩红/腐化/神圣蔓延配置不生效的问题</Description>
+    </PropertyGroup>
+</Project>
