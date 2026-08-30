@@ -14,15 +14,20 @@ TShock 的 `tshock/config.json` 中提供了三个蔓延控制开关：
   "AllowHallowCreep": false
 }
 ```
-但由于 OTAPI 3.3.x 的 Bug，`OTAPI.Hooks.WorldGen.InvokeHardmodeTileUpdate()` 方法虽然在 `Hooks.cs` 中定义了，
-但在 `mfwh_hardUpdateWorld`（实际的蔓延执行代码）中从未被调用，
-导致 `HardmodeTileUpdate` 事件永远不触发，TShock 的 `OnHardUpdate` 无法拦截蔓延。
-本插件通过 Hook `HookEvents.Terraria.WorldGen.hardUpdateWorld` 事件（该事件在 OTAPI 中被正确注入），
-在蔓延执行前检查源图格类型，根据 TShock 配置决定是否阻止蔓延。
+但实测（移除外挂插件后，相同配置挂机对比）确认：**TShock 实际上只阻止了"邪/神草皮的蔓延"**——
+即把普通泥土染成邪/神草这一步（走 `WorldGrassSpread` / `SpreadGrass` 钩子）。
+对感染蔓延真正的大头——已存在的草皮、石头、沙子在 `hardUpdateWorld → WorldGen.Convert`
+被批量替换成感染块——TShock 完全没有拦截。其原因：TShock 挂钩的
+`OTAPI.Hooks.WorldGen.InvokeHardmodeTileUpdate()`（对应 `GameHardmodeTileUpdate`）在
+OTAPI 3.3.x 中已被上游改动所移除调用点，该事件永不触发，`OnHardUpdate` 形同虚设。
 
-> **双路径封堵（v1.0.0.0）**：感染蔓延存在两条独立路径，仅拦一条仍会漏：
-> - **慢路径** `SpreadGrass`：草→草地逐格转化，TShock 已拦截；
-> - **快路径** `hardUpdateWorld → WorldGen.Convert`：以蔓延源格为中心批量转化邻块，TShock 漏挂、本插件补挂。
+因此光靠 TShock 配置，在困难模式下感染会照常扩散。本插件通过 Hook
+`HookEvents.Terraria.WorldGen.hardUpdateWorld` 事件（该事件在 OTAPI 中被正确注入），
+在蔓延源格处直接切断，使 `WorldGen.Convert` 不再执行，从而连同草皮/石/沙的批量转化一起封堵。
+
+> **双钩子封堵（v1.0.0.0）**：感染蔓延存在两条路径，TShock 只拦了其中一条的"染草"步骤：
+> - **SpreadGrass（TShock 已挂钩，本插件保留）**：把泥土染成邪/神草这一步；
+> - **hardUpdateWorld → WorldGen.Convert（TShock 未挂钩，本插件补挂）**：蔓延源格为主循环批量转化邻近草皮/石/沙，这才是被 TShock 遗漏、真实导致"关了还在蔓延"的路径。
 > 拦截判据直接对齐 `TileID.Sets.SpreadsCorruption/SpreadsCrimson/SpreadsHallow`，完整覆盖草/石/沙/棘等全部蔓延源。
 ## 配置
 蔓延开关沿用 TShock 主配置文件 `tshock/config.json`：
