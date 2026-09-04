@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <Import Project="..\..\template.targets" />
+    <PropertyGroup>
+        <AssemblyName>MidiPlayer</AssemblyName>
+        <RootNamespace>MidiPlayer</RootNamespace>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Melanchall.DryWetMidi" Version="7.2.0" />
+    </ItemGroup>
+    <Target Name="CopyToServerPlugins" AfterTargets="Build">
+        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ServerPluginDir)" Condition="'$(ServerPluginDir)' != ''" />
+    </Target>
+</Project>
