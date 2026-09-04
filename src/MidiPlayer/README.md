@@ -8,6 +8,8 @@
 
 - 开发灵感与指导：Ruyou
 
+- 代码贡献：GLM-5.2、 deepseek-v4-Falsh
+
 - **版本**: v1.4.5.5
 
 > \[!IMPORTANT]
