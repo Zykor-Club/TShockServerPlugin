@@ -16,4 +16,5 @@
   <Project Path="src/ItemHeldMessage/ItemHeldMessage.csproj" />
   <Project Path="src/GroupBlacklist/GroupBlacklist.csproj" />
   <Project Path="src/CreepBlockFix/CreepBlockFix.csproj" />
+  <Project Path="src/MidiPlayer/MidiPlayer.csproj" />
 </Solution>
