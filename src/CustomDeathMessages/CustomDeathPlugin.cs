@@ -1,8 +1,9 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Reflection;
 using Microsoft.Xna.Framework;
 
 using Microsoft.Data.Sqlite;
+using SQLitePCL;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
@@ -463,6 +464,10 @@ public class CustomDeathPlugin : TerrariaPlugin
 
     private SqliteConnection CreateDatabase()
     {
+        // 插件自带 Microsoft.Data.Sqlite 的 SQLitePCLRaw 副本与 TShock 内嵌的不是同一个程序集实例，
+        // 必须在本插件的程序集上显式初始化 provider，否则 new SqliteConnection 会抛
+        // "You need to call SQLitePCL.raw.SetProvider()" 异常。
+        Batteries.Init();
         var dbPath = Path.Combine(TShock.SavePath, "tshock.sqlite");
         var conn = new SqliteConnection($"Data Source={dbPath}");
         conn.Open();
