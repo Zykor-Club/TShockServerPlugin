@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <Import Project="..\..\template.targets"/>
+
+    <PropertyGroup>
+        <AssemblyName>starZSEbot</AssemblyName>
+        <RootNamespace>ZSEBot</RootNamespace>
+        <Version>2026.7.7.1</Version>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="linq2db" Version="6.2.1"/>
+    </ItemGroup>
+
+</Project>
