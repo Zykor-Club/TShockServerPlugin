@@ -20,6 +20,9 @@ public enum PackageType
     ShopCondition,
     ShopBuy,
     Say,
+    AutoReset,
+    ArchiveExport,
+    ProgressNotify,
     Error,
     Unknown
 }
@@ -40,7 +43,7 @@ public static class PackageTypeExtension
             PackageType.MapImage => new Version(2025, 7, 18),
             PackageType.CallCommand => new Version(2025, 7, 18),
             PackageType.Unknown => new Version(2025, 7, 18),
-            PackageType.Whitelist => new Version(2025, 7, 18),
+            PackageType.Whitelist => new Version(2026, 10, 3),
             PackageType.UnbindServer => new Version(2025, 7, 25),
             PackageType.Heartbeat => new Version(2025, 7, 25),
             PackageType.RankData => new Version(2025, 7, 25),
@@ -49,6 +52,9 @@ public static class PackageTypeExtension
             PackageType.ShopCondition => new Version(2025, 7, 25),
             PackageType.Error => new Version(2026, 2, 14),
             PackageType.Say => new Version(2026, 9, 23),
+            PackageType.AutoReset => new Version(2026, 10, 2),
+            PackageType.ArchiveExport => new Version(2026, 10, 2),
+            PackageType.ProgressNotify => new Version(2026, 10, 3),
             _ => new Version(2007, 5, 24)
         };
     }

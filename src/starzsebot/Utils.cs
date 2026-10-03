@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
@@ -8,6 +8,7 @@ using System.Text;
 using Terraria;
 using Terraria.GameContent.Events;
 using Terraria.ID;
+using TShockAPI;
 
 namespace ZSEBot;
 
@@ -261,50 +262,58 @@ internal static class Utils
 
     internal static List<int> GetActiveBuffs(IDbConnection connection, int userId, string name)
     {
+        // ① 旧表 Permabuff（按玩家名）→ ② 新表 Permabuffs（按 UserID）两级回退。
+        // 玩家名来自账号数据，拼 SQL 前先转义单引号（表名/列名为固定字面量）；
+        // TShock.DB 是共享连接：仅在未打开时打开，且只归还「本次自己打开」的连接。
+        var escapedName = (name ?? string.Empty).Replace("'", "''");
+        var buffs = QueryBuffList(connection, $"SELECT buffid FROM Permabuff WHERE Name = '{escapedName}'");
+        if (buffs.Count > 0)
+        {
+            return buffs;
+        }
+
+        return QueryBuffList(connection, $"SELECT ActiveBuffs FROM Permabuffs WHERE UserID = {userId}");
+    }
+
+    private static List<int> QueryBuffList(IDbConnection connection, string query)
+    {
         try
         {
-            var queryString2 = $"SELECT buffid FROM Permabuff WHERE Name = '{name}'";
-
-            using var command = connection.CreateCommand();
-            command.CommandText = queryString2;
-
-            connection.Open();
-
-            using var reader = command.ExecuteReader();
-            if (reader.Read())
+            var mustClose = connection.State != System.Data.ConnectionState.Open;
+            if (mustClose)
             {
+                connection.Open();
+            }
+
+            try
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText = query;
+                using var reader = command.ExecuteReader();
+                if (!reader.Read())
+                {
+                    return new List<int>();
+                }
+
                 var activeBuffsString = reader.GetString(0);
-                var activeBuffsList = activeBuffsString.Split(',').Select(int.Parse).ToList();
-                return activeBuffsList;
+                return activeBuffsString
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(int.Parse)
+                    .ToList();
+            }
+            finally
+            {
+                if (mustClose)
+                {
+                    connection.Close();
+                }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // ignored
+            // 不再静默吞掉：记录失败原因（表不存在/连接异常等），由上层照常展示其余数据
+            TShock.Log.ConsoleError($"[starZSEbot]读取永久buff失败: {ex.Message}");
+            return new List<int>();
         }
-
-        try
-        {
-            var queryString = $"SELECT ActiveBuffs FROM Permabuffs WHERE UserID = '{userId}'";
-
-            using var command = connection.CreateCommand();
-            command.CommandText = queryString;
-
-            connection.Open();
-
-            using var reader = command.ExecuteReader();
-            if (reader.Read())
-            {
-                var activeBuffsString = reader.GetString(0);
-                var activeBuffsList = activeBuffsString.Split(',').Select(int.Parse).ToList();
-                return activeBuffsList;
-            }
-        }
-        catch
-        {
-            // ignored
-        }
-
-        return new List<int>();
     }
 }

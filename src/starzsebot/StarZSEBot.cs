@@ -34,7 +34,10 @@ public class StarZSEBot(Main game) : TerrariaPlugin(game)
         ServerApi.Hooks.NpcKilled.Register(this, OnNpcKilled);
         ServerApi.Hooks.ServerLeave.Register(this, OnServerLeave);
         ServerApi.Hooks.GamePostUpdate.Register(this, OnGameUpdate);
+        // 兜底发送主驱动源：每帧触发、空服也在跑（空服时 GamePostUpdate 停摆，不能只靠它）
+        On.Terraria.Netplay.UpdateInMainThread += LoginHelper.On_NetplayUpdateInMainThread;
         On.Terraria.MessageBuffer.GetData += LoginHelper.On_MessageBufferOnGetData;
+        ServerApi.Hooks.NetGetData.Register(this, LoginHelper.OnGetData, int.MaxValue);
         GeneralHooks.ReloadEvent += GeneralHooksOnReloadEvent;
         PlayerHooks.PlayerPostLogin += PlayerHooksOnPlayerPostLogin;
         GetDataHandlers.KillMe.Register(KillMe, HandlerPriority.Highest);
@@ -58,7 +61,9 @@ public class StarZSEBot(Main game) : TerrariaPlugin(game)
             ServerApi.Hooks.NpcKilled.Deregister(this, OnNpcKilled);
             ServerApi.Hooks.ServerLeave.Deregister(this, OnServerLeave);
             ServerApi.Hooks.GamePostUpdate.Deregister(this, OnGameUpdate);
+            On.Terraria.Netplay.UpdateInMainThread -= LoginHelper.On_NetplayUpdateInMainThread;
             On.Terraria.MessageBuffer.GetData -= LoginHelper.On_MessageBufferOnGetData;
+            ServerApi.Hooks.NetGetData.Deregister(this, LoginHelper.OnGetData);
             GeneralHooks.ReloadEvent -= GeneralHooksOnReloadEvent;
             PlayerHooks.PlayerPostLogin -= PlayerHooksOnPlayerPostLogin;
             GetDataHandlers.KillMe.UnRegister(KillMe);
@@ -70,9 +75,20 @@ public class StarZSEBot(Main game) : TerrariaPlugin(game)
     }
 
     private static int _timer;
+    private static int _progressTimer;
 
     private static void OnGameUpdate(EventArgs args)
     {
+        // 平台包等待超时的兜底发送（降级为当前平台）
+        LoginHelper.TickRequestTimeout();
+
+        // 首杀播报检测：约每 0.25 秒聚合一次（避免每帧分配进度快照）
+        if (++_progressTimer >= 15)
+        {
+            _progressTimer = 0;
+            ProgressNotify.Tick();
+        }
+
         if (_timer >= 60 * 60 * 5)
         {
             foreach (var player in TShock.Players.Where(x => x is { Active: true }))
@@ -116,6 +132,10 @@ public class StarZSEBot(Main game) : TerrariaPlugin(game)
 
     private static void OnNpcKilled(NpcKilledEventArgs args)
     {
+        // 首杀播报：记录本次 boss 击杀（玩家并集 + 时间），由 ProgressNotify.Tick 聚合判定并推送。
+        // 放在 boss 过滤之前：多段 boss 的非主部位（npc.boss=false）也要参与玩家并集；非 boss 类型由映射表快速过滤。
+        ProgressNotify.RecordKill(args.npc);
+
         if (!args.npc.boss)
         {
             return;
@@ -129,16 +149,15 @@ public class StarZSEBot(Main game) : TerrariaPlugin(game)
             }
 
             var player = TShock.Players[i];
-            // ReSharper disable once UseNullPropagation
             if (player == null)
             {
-                return;
+                continue; // 单槽位为空不应中断整轮统计（原 return 会漏记后续玩家）
             }
 
             var characterInfo = player.GetData<ZSECharacterInfo>(CharacterInfoKey);
             if (characterInfo == null)
             {
-                return;
+                continue; // 未登录/无统计信息的玩家不应中断整轮统计（原 return 会漏记后续玩家）
             }
 
             var bossInfo = characterInfo.BossKills.FirstOrDefault(x => x.BossId == args.npc.type);
