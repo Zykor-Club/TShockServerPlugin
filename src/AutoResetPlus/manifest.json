@@ -1,0 +1,8 @@
+{
+  "README": {
+    "Description": "重置插件增强版：自定义重置内容、秘密种子组合与击杀自动重置（TShock 6.2.1）"
+  },
+  "README.en-US": {
+    "Description": "Enhanced world-reset plugin: customizable reset content, secret-seed combos and kill-triggered auto reset (TShock 6.2.1)"
+  }
+}
