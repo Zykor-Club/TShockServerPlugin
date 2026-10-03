@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <Import Project="..\..\template.targets"/>
+
+    <PropertyGroup>
+        <AssemblyName>AutoResetPlus</AssemblyName>
+        <RootNamespace>AutoResetPlus</RootNamespace>
+        <Version>2026.10.2.0</Version>
+    </PropertyGroup>
+
+</Project>
