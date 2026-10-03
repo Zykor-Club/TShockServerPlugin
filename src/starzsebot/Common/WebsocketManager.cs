@@ -102,7 +102,7 @@ public static class WebsocketManager
                 while (true)
                 {
                     var buffer = new byte[1024];
-                    var memoryStream = new MemoryStream();
+                    using var memoryStream = new MemoryStream();
 
                     WebSocketReceiveResult result;
                     do
@@ -134,7 +134,8 @@ public static class WebsocketManager
                         break;
                     }
 
-                    var receivedData = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    // 多帧消息必须用累积后的 memoryStream 解码，仅用 buffer/最后一帧会截断 >1024 字节的包
+                    var receivedData = Encoding.UTF8.GetString(memoryStream.ToArray());
                     if (StarZSEBot.DebugMode)
                     {
                         TShock.Log.ConsoleInfo($"[starZSEbot]收到BOT数据包: {receivedData}");

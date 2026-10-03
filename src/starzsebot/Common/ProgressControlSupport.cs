@@ -18,6 +18,28 @@ public static class ProgressControlSupport
     private static FieldInfo? _lockTimeField;
     private static FieldInfo? _startDateField;
 
+    private static readonly Dictionary<string, string> BossIdNameToIdentity = new()
+    {
+        { "史莱姆王", "King Slime" },
+        { "克苏鲁之眼", "Eye of Cthulhu" },
+        { "世界吞噬者", "Eater of Worlds" },
+        { "克苏鲁之脑", "Brain of Cthulhu" },
+        { "蜂后", "Queen Bee" },
+        { "巨鹿", "Deerclops" },
+        { "骷髅王", "Skeletron" },
+        { "血肉墙", "Wall of Flesh" },
+        { "史莱姆皇后", "Queen Slime" },
+        { "双子魔眼", "The Twins" },
+        { "毁灭者", "The Destroyer" },
+        { "机械骷髅王", "Skeletron Prime" },
+        { "世纪之花", "Plantera" },
+        { "石巨人", "Golem" },
+        { "猪龙鱼公爵", "Duke Fishron" },
+        { "光之女皇", "Empress of Light" },
+        { "拜月教教徒", "Lunatic Cultist" },
+        { "月亮领主", "Moon Lord" }
+    };
+
     public static void Init()
     {
         var pluginContainer = ServerApi.Plugins.FirstOrDefault(x => x.Plugin.Name == "ProgressControls");
@@ -68,29 +90,6 @@ public static class ProgressControlSupport
             return result;
         }
 
-        var bossIdNameToIdentity = new Dictionary<string, string>
-        {
-            { "史莱姆王", "King Slime" },
-            { "克苏鲁之眼", "Eye of Cthulhu" },
-            { "世界吞噬者", "Eater of Worlds" },
-            { "克苏鲁之脑", "Brain of Cthulhu" },
-            { "蜂后", "Queen Bee" },
-            { "巨鹿", "Deerclops" },
-            { "骷髅王", "Skeletron" },
-            { "血肉墙", "Wall of Flesh" },
-            { "史莱姆皇后", "Queen Slime" },
-            { "双子魔眼", "The Twins" },
-            { "毁灭者", "The Destroyer" },
-            { "机械骷髅王", "Skeletron Prime" },
-            { "世纪之花", "Plantera" },
-            { "石巨人", "Golem" },
-            { "猪龙鱼公爵", "Duke Fishron" },
-            { "光之女皇", "Empress of Light" },
-            { "拜月教教徒", "Lunatic Cultist" },
-            { "月亮领主", "Moon Lord" }
-        };
-
-
         foreach (DictionaryEntry lockedBoss in lockedBosses)
         {
             if (lockedBoss.Key is not string bossKey || lockedBoss.Value is not double lockHours)
@@ -98,7 +97,7 @@ public static class ProgressControlSupport
                 continue;
             }
 
-            if (!bossIdNameToIdentity.TryGetValue(bossKey, out var bossName))
+            if (!BossIdNameToIdentity.TryGetValue(bossKey, out var bossName))
             {
                 continue;
             }
@@ -110,6 +109,52 @@ public static class ProgressControlSupport
             }
 
             result[bossName] = TimeFormat(unlockTime);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 当前锁定 BOSS → 绝对解锁时间戳（Unix 秒）。
+    /// 解锁时间 = StartServerDate + lockHours（与 GetLockBosses 同一过滤规则：仅未到期的）。
+    /// </summary>
+    public static Dictionary<string, long> GetLockBossesTs()
+    {
+        if (!Support)
+        {
+            throw new NotSupportedException("没有安装ProgressControls插件!");
+        }
+
+        var config = _configField!.GetValue(null)!;
+        var enable = (bool)_enableField!.GetValue(config)!;
+        var lockedBosses = _lockTimeField!.GetValue(config) as IDictionary;
+        var initDate = (DateTime)_startDateField!.GetValue(config)!;
+        var result = new Dictionary<string, long>();
+
+        if (!enable || lockedBosses is null)
+        {
+            return result;
+        }
+
+        foreach (DictionaryEntry lockedBoss in lockedBosses)
+        {
+            if (lockedBoss.Key is not string bossKey || lockedBoss.Value is not double lockHours)
+            {
+                continue;
+            }
+
+            if (!BossIdNameToIdentity.TryGetValue(bossKey, out var bossName))
+            {
+                continue;
+            }
+
+            var unlockTime = initDate + TimeSpan.FromHours(lockHours);
+            if (unlockTime <= DateTime.Now)
+            {
+                continue;
+            }
+
+            result[bossName] = new DateTimeOffset(unlockTime).ToUnixTimeSeconds();
         }
 
         return result;

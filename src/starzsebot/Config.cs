@@ -6,7 +6,10 @@ namespace ZSEBot;
 public class Config
 {
     private static string ConfigPath = Path.Combine(TShock.SavePath, "starZSEbot.json");
-    public static Config Settings = new ();
+    // 读/写共用同一把锁（防止重载与写盘交错）；volatile 保证换实例后其他线程立即可见，
+    // 读者拿到的永远是「完整的新实例或完整的旧实例」，不会读到半写状态
+    private static readonly object FileLock = new ();
+    public static volatile Config Settings = new ();
 
     [JsonProperty("白名单开关")]
     public bool WhiteList = true;
@@ -38,9 +41,12 @@ public class Config
     /// </summary>
     internal void Write()
     {
-        using FileStream fileStream = new (ConfigPath, FileMode.Create, FileAccess.Write, FileShare.Write);
-        using StreamWriter streamWriter = new (fileStream);
-        streamWriter.Write(JsonConvert.SerializeObject(this, JsonSettings));
+        lock (FileLock)
+        {
+            using FileStream fileStream = new (ConfigPath, FileMode.Create, FileAccess.Write, FileShare.Write);
+            using StreamWriter streamWriter = new (fileStream);
+            streamWriter.Write(JsonConvert.SerializeObject(this, JsonSettings));
+        }
     }
 
     /// <summary>
@@ -48,20 +54,24 @@ public class Config
     /// </summary>
     internal void Read()
     {
-        Config result;
-        if (!File.Exists(ConfigPath))
+        lock (FileLock)
         {
-            result = new Config();
-            result.Write();
-        }
-        else
-        {
-            using FileStream fileStream = new (ConfigPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            using StreamReader streamReader = new (fileStream);
-            result = JsonConvert.DeserializeObject<Config>(streamReader.ReadToEnd(), JsonSettings)!;
-        }
+            Config result;
+            if (!File.Exists(ConfigPath))
+            {
+                result = new Config();
+                result.Write();
+            }
+            else
+            {
+                using FileStream fileStream = new (ConfigPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                using StreamReader streamReader = new (fileStream);
+                result = JsonConvert.DeserializeObject<Config>(streamReader.ReadToEnd(), JsonSettings)!;
+            }
 
-        Settings = result;
+            // 整体替换（引用赋值）：读者要么看到旧配置、要么看到新配置，配合 volatile 保证可见性
+            Settings = result;
+        }
     }
 
     private static readonly JsonSerializerSettings JsonSettings = new () { Formatting = Formatting.Indented, ObjectCreationHandling = ObjectCreationHandling.Replace };

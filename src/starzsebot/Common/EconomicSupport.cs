@@ -177,7 +177,8 @@ public static class EconomicSupport
     {
         get
         {
-            ThrowIfNotSupported();
+            // 属性访问器的 CallerMemberName 是 "get_SupportCoins"，与 IsSupported 的键不一致，需显式传名
+            ThrowIfNotSupported(nameof(SupportCoins));
             var setting = _settingInstance!.GetValue(null);
             if (setting is null || _currenciesField!.GetValue(setting) is not IEnumerable currencies)
             {

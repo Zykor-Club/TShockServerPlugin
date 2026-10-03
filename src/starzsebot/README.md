@@ -16,14 +16,16 @@
 > - `GenerateMap`：不安装则"获取地图"相关数据包不可用
 > - `Economics.Core` / `Economics.RPG` / `Economics.Skill`：不安装则查询背包时不附带货币 / 职业 / 技能信息
 > - `BossLock` / `ProgressControls`：不安装则进度数据包中不包含进度锁 BOSS 信息
+> - `AutoResetPlus`：不安装则群内「重置 / 种子投票（随机生成）」不可用（返回未安装提示）；存档导出不受其影响
 
 ## 功能概述
 
 - 通过 WebSocket 长连接（支持 TLS）与 QQ 机器人通信，支持绑定码绑定 / 解绑 / 断线自动重连 / 心跳
-- 白名单进服校验：玩家进服时上报玩家名与设备 UUID，由机器人判定并回包，未绑定 / 未授权设备 / 冻结账号将被踢出
+- 白名单进服校验与免注册登录：玩家进服时上报玩家名、设备 UUID 与设备平台（PC / PE 等），由机器人判定并回包；通过后插件直接接管登录（自动注册 / 登录，不再出现 /register /login 提示），未绑定 / 未授权设备 / 冻结账号将被踢出（需登录确认时提示玩家到群内 @机器人 发送「登录」）
 - 查询背包：在线玩家直读角色数据，离线玩家读取 TShock SSC 存档；附带生命 / 魔力 / 任务数 / Buff / 装备前缀
 - 世界地图：调用 GenerateMap 生成地图图片、地图文件，或回传世界文件
 - 进度数据：世界进度、各 BOSS 击杀次数、BossLock / ProgressControls 进度锁状态、世界图标
+- BOSS 首杀播报：世界内 boss 首次被击杀时推送 `progress_notify` 包（boss / 击杀玩家 / 时间 / 世界名），世界重置后自动重新武装，不补发历史击杀
 - 在线玩家列表：名称、在线人数、人数上限、当前世界进度
 - 远程指令执行：机器人在群内设置的远程命令由服务器执行并回传输出
 - 全服喊话：机器人的广播以绿色文字发到服务器内
@@ -31,6 +33,7 @@
 - 经济数据：查询背包附带 Economics 的货币 / 职业 / 技能信息
 - 商店与邮件：物品解锁条件校验、购买后通过邮件发放物品或执行指令
 - 玩家自踢：机器人可强制某位玩家下线
+- 种子投票与重置桥接：向机器人提供世界种子配置读取、写入种子、触发重置的能力（运行时反射桥接 AutoResetPlus）；导出全部账号角色与当前世界存档并打包回传
 
 ## 游戏内命令（`/starzsebot` 或 `/zse`）
 
@@ -76,10 +79,11 @@
 | ---- | ---- | ---- |
 | hello | 插件 → 机器人 | 上报服务器名 / 游戏版本 / TShock 版本 / 插件版本 / 白名单开关 |
 | heartbeat | 插件 → 机器人 | 心跳保活 |
-| whitelist | 双向 | 玩家进服白名单校验：插件上报玩家与 UUID，机器人回包判定结果 |
+| whitelist | 双向 | 玩家进服白名单校验：插件上报玩家、UUID 与设备平台，机器人回包判定结果 |
 | look_bag | 双向 | 查询背包（在线直读 / 离线读 SSC），回包含物品 / Buff / 前缀 / 经济数据 |
 | player_list | 双向 | 在线玩家列表与人数 |
 | progress | 双向 | 世界进度、BOSS 击杀数、进度锁、世界图标 |
+| progress_notify | 插件 → 机器人 | BOSS 首杀播报：`boss_key` / `players`（击杀玩家并集）/ `kill_time` / `world_name`；世界重置后重新武装，不补发历史击杀 |
 | map_image / map_file | 双向 | 地图图片 / 地图文件（需 GenerateMap） |
 | world_file | 双向 | 世界文件回传 |
 | call_command | 双向 | 远程执行服务器指令并回传输出 |
@@ -89,6 +93,10 @@
 | plugin_list | 双向 | 服务器插件列表 |
 | self_kick | 机器人 → 插件 | 强制玩家下线 |
 | unbind_server | 机器人 → 插件 | 解除绑定并重新生成绑定码 |
+| auto_reset | 双向 | AutoResetPlus 桥接：`is_request=true`，`payload.action` ∈ get_config / set_seed / do_reset。get_config 回包 `installed` / `world_name` / `current_seed` / `random_enable` / `seed_list` / `min` / `max` / `online_minutes`（各账号在线分钟数，取自 zse_statistic）；set_seed 将 `\|` 连接的种子组合写入 AutoResetPlus 预设并保存，回包 `ok`；do_reset 触发重置流程，非 Available 状态时回失败原因；未安装插件回「未检测到 AutoResetPlus 插件」 |
+| archive_export | 双向 | 存档导出：导出 tsCharacter 全部账号为 `.plr`（在线玩家取 TPlayer、离线玩家重建 Player）并复制当前 `.wld`，以 `SmallestSize` 打包 zip，本地保留在 `tshock/starZSEbot/Exports/`，回包 `{name, base64}`（base64 为 gzip 压缩后的 zip）；不依赖 AutoResetPlus，未安装也可用 |
+
+> `auto_reset` 由 `Common/AutoResetSupport.cs` 在运行时反射访问 AutoResetPlus（未安装时 `installed=false` 降级、不抛异常）；`archive_export` 由 `Common/ArchiveExport.cs` 实现，不依赖 AutoResetPlus；白名单免注册登录与设备平台识别由 `Common/LoginHelper.cs`（MessageBuffer 只读钩子 + NetGetData 阻断原生握手）与 `Common/PlatformTracker.cs` 实现；首杀播报由 `Common/ProgressNotify.cs` 实现。
 
 ## 兼容性
 

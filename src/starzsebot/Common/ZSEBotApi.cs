@@ -1,5 +1,6 @@
 using ZSEBot.Enums;
 using ZSEBot.Models;
+using LinqToDB;
 using Microsoft.Xna.Framework;
 using Terraria;
 using TerrariaApi.Server;
@@ -61,17 +62,23 @@ internal static class ZSEBotApi
                 case PackageType.Progress:
 
                     var bossLock = new Dictionary<string, string>();
-
+                    var bossLockTs = new Dictionary<string, long>();
 
                     if (BossLockSupport.Support)
                     {
                         bossLock = BossLockSupport.GetLockBosses();
+                        bossLockTs = BossLockSupport.GetLockBossesTs();
                     }
 
                     if (ProgressControlSupport.Support)
                     {
                         var progressControlBosses = ProgressControlSupport.GetLockBosses();
-                        bossLock = bossLock.Count < progressControlBosses.Count ? progressControlBosses : bossLock;
+                        // 与 boss_lock 同一选择逻辑：锁定条目多的一方生效（解锁时间戳同步切换）
+                        if (bossLock.Count < progressControlBosses.Count)
+                        {
+                            bossLock = progressControlBosses;
+                            bossLockTs = ProgressControlSupport.GetLockBossesTs();
+                        }
                     }
 
                     packetWriter
@@ -79,6 +86,7 @@ internal static class ZSEBotApi
                         .Write("process", Utils.GetProcessList())
                         .Write("kill_counts", Utils.GetKillCountList())
                         .Write("boss_lock", bossLock)
+                        .Write("boss_lock_ts", bossLockTs)
                         .Write("world_name", Main.worldName)
                         .Write("drunk_world", Main.drunkWorld)
                         .Write("zenith_world", Main.zenithWorld)
@@ -89,15 +97,25 @@ internal static class ZSEBotApi
                     var name = package.Read<string>("player_name");
                     var whitelistResult = package.Read<WhiteListResult>("whitelist_result");
 
-                    var player = TShock.Players.FirstOrDefault(x => x?.Name == name && x is { ConnectionAlive: true });
+                    // 与 CaiBotLite 一致：只匹配仍处于握手状态（AssigningPlayerSlot）的连接。
+                    // 握手期连接 State 恒为 1（CC2 被拦截，不会进入 AwaitingPlayerInfo），
+                    // 同名旧连接（将断未断、ConnectionAlive 仍为 true）不会被误命中。
+                    var player = TShock.Players.FirstOrDefault(x =>
+                        x?.Name == name && x is { State: (int) ConnectionState.AssigningPlayerSlot });
                     if (player == null)
                     {
-                        TShock.Log.ConsoleInfo($"[starZSEbot]白名单回包 {name} -> {whitelistResult}, 玩家已不在线，忽略");
+                        TShock.Log.ConsoleInfo($"[starZSEbot]白名单回包 {name} -> {whitelistResult}, 未找到握手中的玩家，忽略");
                         return;
                     }
 
-                    // Accept 放行（CheckWhitelist 只记日志）；其余结果（未绑定/黑名单/未授权设备）踢出
-                    LoginHelper.CheckWhitelist(player, whitelistResult);
+                    // Accept → 直接自动注册/登录（免 /register /login），不走队列：
+                    // 队列延迟一帧出队时连接可能已失效，导致 WorldInfo 永不发出（客户端卡「已找到会话」）
+                    // 其余结果（未绑定/黑名单/未授权设备）踢出
+                    if (LoginHelper.CheckWhitelist(player, whitelistResult))
+                    {
+                        LoginHelper.HandleLogin(player);
+                    }
+
                     break;
                 case PackageType.SelfKick:
                     var selfKickName = package.Read<string>("name");
@@ -337,6 +355,69 @@ internal static class ZSEBotApi
 
                     mail.CreatOrUpdate();
                     break;
+                case PackageType.AutoReset:
+                    var resetAction = package.Read<string>("action");
+                    switch (resetAction)
+                    {
+                        case "get_config":
+                            var snapshot = AutoResetSupport.GetConfig();
+                            packetWriter
+                                .Write("installed", snapshot.Installed)
+                                .Write("world_name", snapshot.WorldName)
+                                .Write("current_seed", snapshot.CurrentSeed)
+                                .Write("random_enable", snapshot.RandomEnable)
+                                .Write("seed_list", snapshot.SeedList)
+                                .Write("min", snapshot.Min)
+                                .Write("max", snapshot.Max)
+                                .Write("online_minutes", GetOnlineMinutes())
+                                .Send();
+                            break;
+                        case "set_seed":
+                            var seed = package.Read<string>("seed");
+                            var setSeedResult = AutoResetSupport.SetSeed(seed);
+                            if (setSeedResult.Ok)
+                            {
+                                packetWriter.Write("ok", true).Send();
+                            }
+                            else
+                            {
+                                packetWriter.Write("error", setSeedResult.Error ?? "未知错误").Send();
+                            }
+
+                            break;
+                        case "do_reset":
+                            var doResetResult = AutoResetSupport.DoReset();
+                            if (doResetResult.Ok)
+                            {
+                                packetWriter.Write("ok", true).Send();
+                            }
+                            else
+                            {
+                                packetWriter.Write("error", doResetResult.Error ?? "未知错误").Send();
+                            }
+
+                            break;
+                        default:
+                            packetWriter.Write("error", $"未知的 auto_reset 操作: {resetAction}").Send();
+                            break;
+                    }
+
+                    break;
+                case PackageType.ArchiveExport:
+                    var archiveResult = ArchiveExport.Export();
+                    if (archiveResult.Error == null)
+                    {
+                        packetWriter
+                            .Write("name", archiveResult.Name ?? "")
+                            .Write("base64", archiveResult.Base64 ?? "")
+                            .Send();
+                    }
+                    else
+                    {
+                        packetWriter.Write("error", archiveResult.Error).Send();
+                    }
+
+                    break;
                 case PackageType.Hello:
                 case PackageType.Heartbeat:
                 case PackageType.Unknown:
@@ -355,5 +436,29 @@ internal static class ZSEBotApi
             packetWriter.Write("error", ex.ToString())
                 .Send();
         }
+    }
+
+    private static Dictionary<string, int> GetOnlineMinutes()
+    {
+        var result = new Dictionary<string, int>();
+        try
+        {
+            using var db = Database.Db;
+            foreach (var info in db.GetTable<ZSECharacterInfo>().ToList())
+            {
+                if (string.IsNullOrEmpty(info.AccountName))
+                {
+                    continue;
+                }
+
+                result[info.AccountName] = info.OnlineMinute;
+            }
+        }
+        catch (Exception ex)
+        {
+            TShock.Log.ConsoleError($"[starZSEbot]读取在线时长统计失败: {ex}");
+        }
+
+        return result;
     }
 }
