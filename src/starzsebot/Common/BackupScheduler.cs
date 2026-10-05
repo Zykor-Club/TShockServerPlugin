@@ -13,6 +13,7 @@ namespace ZSEBot.Common;
 internal static class BackupScheduler
 {
     private static DateTime _last = DateTime.MinValue;
+    private static DateTime _lastDiag = DateTime.MinValue;
     private static int _running;
 
     /// <summary>OnGameUpdate 调用（约每 0.25 秒一次）</summary>
@@ -21,6 +22,17 @@ internal static class BackupScheduler
         try
         {
             var cfg = Config.Settings;
+            var now = DateTime.Now;
+
+            // 诊断：每 10 分钟记录一次调度状态（确认自动备份是否在工作，排障用，可长期保留）
+            if (now - _lastDiag >= TimeSpan.FromMinutes(10))
+            {
+                _lastDiag = now;
+                TShock.Log.ConsoleInfo($"[starZSEbot]备份调度状态：开关={cfg.AutoBackup} 间隔={cfg.BackupIntervalHours}小时"
+                    + $" 菜单中={Main.gameMenu} 世界名={Main.worldName ?? ""}"
+                    + $" 上次备份={(_last == DateTime.MinValue ? "尚未开始" : _last.ToString("HH:mm:ss"))}");
+            }
+
             if (!cfg.AutoBackup || cfg.BackupIntervalHours <= 0)
             {
                 return;
@@ -32,7 +44,6 @@ internal static class BackupScheduler
                 return;
             }
 
-            var now = DateTime.Now;
             if (_last == DateTime.MinValue)
             {
                 _last = now;   // 启动/换世界后先等一个完整间隔，避免刚开服就备份

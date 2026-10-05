@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Reflection;
 using System.Security.Cryptography;
 using Terraria;
 using Terraria.IO;
@@ -131,6 +132,180 @@ internal static class ArchiveExport
                 // ignored
             }
         }
+    }
+
+    /// <summary>备份列表（Exports 下的 zip，按修改时间倒序）</summary>
+    internal static List<(string Name, long Size, DateTime Time)> ListBackups()
+    {
+        var list = new List<(string, long, DateTime)>();
+        try
+        {
+            var root = Path.Combine(TShock.SavePath, "starZSEBot", "Exports");
+            if (!Directory.Exists(root))
+            {
+                return list;
+            }
+
+            foreach (var f in new DirectoryInfo(root).GetFiles("*.zip")
+                         .OrderByDescending(f => f.LastWriteTimeUtc))
+            {
+                list.Add((f.Name, f.Length, f.LastWriteTime));
+            }
+        }
+        catch (Exception ex)
+        {
+            TShock.Log.ConsoleError($"[starZSEbot]列出备份失败: {ex.Message}");
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// 回退备份：把 zip 里「玩家存档/*.plr」重新导入，覆盖服务器角色数据（SSC 数据库）。
+    /// 在线玩家先踢下线，否则其退出时会把内存里的角色再写回，覆盖掉刚导入的数据。
+    /// </summary>
+    internal static (bool Ok, string? Error, List<string> Restored, List<string> Skipped)
+        RestorePlayerSaves(string fileName)
+    {
+        var restored = new List<string>();
+        var skipped = new List<string>();
+        var safeName = Path.GetFileName(fileName ?? "");
+        var root = Path.Combine(TShock.SavePath, "starZSEBot", "Exports");
+        var zipPath = Path.Combine(root, safeName);
+        if (!File.Exists(zipPath))
+        {
+            return (false, $"找不到备份文件：{safeName}", restored, skipped);
+        }
+
+        var stage = Path.Combine(root, "_restore_" + DateTime.Now.ToString("yyyyMMdd_HHmmss"));
+        try
+        {
+            Directory.CreateDirectory(stage);
+            ZipFile.ExtractToDirectory(zipPath, stage, true);
+
+            var files = Directory.GetFiles(stage, "*.plr", SearchOption.AllDirectories);
+            if (files.Length == 0)
+            {
+                return (false, "该备份里没有玩家存档（.plr）", restored, skipped);
+            }
+
+            foreach (var file in files)
+            {
+                try
+                {
+                    var player = ReadPlayerFile(file);
+                    if (player == null || string.IsNullOrWhiteSpace(player.name))
+                    {
+                        skipped.Add(Path.GetFileNameWithoutExtension(file));
+                        continue;
+                    }
+
+                    var account = TShock.UserAccounts.GetUserAccountByName(player.name);
+                    if (account == null)
+                    {
+                        skipped.Add(player.name + "(无此账号)");
+                        continue;
+                    }
+
+                    var online = TShock.Players.FirstOrDefault(p => p?.Account?.ID == account.ID);
+                    online?.Kick("[starZSEbot]正在回退存档，请稍后重新登录", true, true);
+
+                    // 把导入的角色写进 SSC 数据库：
+                    //   TSPlayer.TPlayer 是只读属性，用反射把导入的角色注入 FakePlayer（离线 TSPlayer），
+                    //   再走 TShock 官方流程：PlayerData.CopyCharacter 采集 → InsertSpecificPlayerData 落库
+                    var fake = new FakePlayer(player.name)
+                    {
+                        Account = new UserAccount { ID = account.ID }
+                    };
+                    if (!InjectPlayer(fake, player))
+                    {
+                        skipped.Add(player.name + "(无法写入角色数据，请更新插件)");
+                        continue;
+                    }
+
+                    var data = new PlayerData(fake);
+                    data.CopyCharacter(fake);
+                    fake.PlayerData = data;
+                    TShock.CharacterDB.InsertSpecificPlayerData(fake, data);
+                    restored.Add(player.name);
+                }
+                catch (Exception ex)
+                {
+                    skipped.Add($"{Path.GetFileNameWithoutExtension(file)}({ex.Message})");
+                }
+            }
+
+            TShock.Log.ConsoleInfo($"[starZSEbot]存档回退完成：{safeName} 成功 {restored.Count} 个，跳过 {skipped.Count} 个");
+            return (true, null, restored, skipped);
+        }
+        catch (Exception ex)
+        {
+            TShock.Log.ConsoleError($"[starZSEbot]存档回退失败: {ex}");
+            return (false, $"回退失败: {ex.Message}", restored, skipped);
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(stage))
+                {
+                    Directory.Delete(stage, true);
+                }
+            }
+            catch
+            {
+                // ignored
+            }
+        }
+    }
+
+    /// <summary>
+    /// 把反序列化出来的角色注入 TSPlayer。
+    /// TShock 的 <c>TSPlayer.TPlayer</c> 是只读属性（自动属性或手动字段），反射写其背后字段。
+    /// </summary>
+    private static bool InjectPlayer(TSPlayer tsPlayer, Player player)
+    {
+        try
+        {
+            var type = typeof(TSPlayer);
+            var field = type.GetField("<TPlayer>k__BackingField",
+                            BindingFlags.NonPublic | BindingFlags.Instance)
+                        ?? type.GetField("TPlayer",
+                            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            if (field == null)
+            {
+                TShock.Log.ConsoleError("[starZSEbot]找不到 TSPlayer.TPlayer 字段，无法回退角色");
+                return false;
+            }
+
+            field.SetValue(tsPlayer, player);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            TShock.Log.ConsoleError($"[starZSEbot]注入角色失败: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>读取导出的 .plr（与 WritePlayerFile 对称：解密 → 版本号 → 元数据 → 角色）</summary>
+    private static Player? ReadPlayerFile(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read);
+        using var cryptoStream = new CryptoStream(stream,
+            Aes.Create().CreateDecryptor(Player.ENCRYPTION_KEY, Player.ENCRYPTION_KEY), CryptoStreamMode.Read);
+        using var reader = new BinaryReader(cryptoStream);
+        reader.ReadInt32();                                   // 导出时写入的角色存档版本号
+        var metadata = new FileMetadata();
+        metadata.Read(reader);
+        var playerFileData = new PlayerFileData
+        {
+            Metadata = metadata,
+            _isCloudSave = false
+        };
+        var player = new Player();
+        Player.Deserialize(playerFileData, player, reader, PlayerFileVersion, out _);
+        return player;
     }
 
     private static Player? BuildOfflinePlayer(UserAccount account)

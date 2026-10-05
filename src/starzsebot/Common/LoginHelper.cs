@@ -66,6 +66,8 @@ internal static class LoginHelper
             TickRequestTimeout();
             // 换世界检测放这里：GamePostUpdate 在空服停摆，而 AutoResetPlus 可能趁没人时重置
             WorldResetGuard.Tick();
+            // 定时备份也放这里：**空服正是最该备份的时候**，而 GamePostUpdate 空服停摆
+            BackupScheduler.Tick();
         }
         catch (Exception ex)
         {

@@ -58,13 +58,14 @@ public class Config
     [JsonProperty("自动备份开关")]
     public bool AutoBackup = true;
 
-    /// <summary>自动备份间隔（小时），0 = 关闭（改配置后重载即生效）</summary>
+    /// <summary>自动备份间隔（小时），0 = 关闭；默认 0.5 = **每 30 分钟一次**（对齐 FixTools 的节奏）</summary>
     [JsonProperty("自动备份间隔小时")]
-    public double BackupIntervalHours = 6;
+    public double BackupIntervalHours = 0.5;
 
-    /// <summary>保留最近几份备份（含重置前自动导出的那份），超出的最旧文件会被删除</summary>
+    /// <summary>保留最近几份备份（含重置前自动导出的那份），超出的最旧文件会被删除。
+    /// 0.5 小时一份 × 48 份 ≈ 24 小时历史</summary>
     [JsonProperty("备份保留份数")]
-    public int BackupKeep = 10;
+    public int BackupKeep = 48;
 
     /// <summary>重置生成新世界时的难度：经典/专家/大师/旅行；留空 = 不干预（跟随当前）</summary>
     [JsonProperty("地图难度")]
