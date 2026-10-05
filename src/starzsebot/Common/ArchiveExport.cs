@@ -210,23 +210,31 @@ internal static class ArchiveExport
                     var online = TShock.Players.FirstOrDefault(p => p?.Account?.ID == account.ID);
                     online?.Kick("[starZSEbot]正在回退存档，请稍后重新登录", true, true);
 
-                    // 把导入的角色写进 SSC 数据库：
-                    //   TSPlayer.TPlayer 是只读属性，用反射把导入的角色注入 FakePlayer（离线 TSPlayer），
-                    //   再走 TShock 官方流程：PlayerData.CopyCharacter 采集 → InsertSpecificPlayerData 落库
+                    // 把导入的角色写进 SSC 数据库（依据 TShock 源码 general-devel）：
+                    //   · TSPlayer.TPlayer => FakePlayer ?? Main.player[Index]  → 真正的载体是 FakePlayer 字段
+                    //   · CharacterManager.InsertSpecificPlayerData 开头即 if (!player.IsLoggedIn) return false;
+                    //     → 必须把 IsLoggedIn 置 true，否则 TShock 会**静默拒绝写入**
+                    //   · PlayerData(TSPlayer) 构造只做初始化（还会塞初始物品），必须再 CopyCharacter 采集
                     var fake = new FakePlayer(player.name)
                     {
                         Account = new UserAccount { ID = account.ID }
                     };
                     if (!InjectPlayer(fake, player))
                     {
-                        skipped.Add(player.name + "(无法写入角色数据，请更新插件)");
+                        skipped.Add(player.name + "(无法注入角色数据)");
                         continue;
                     }
 
+                    fake.IsLoggedIn = true;
                     var data = new PlayerData(fake);
                     data.CopyCharacter(fake);
                     fake.PlayerData = data;
-                    TShock.CharacterDB.InsertSpecificPlayerData(fake, data);
+                    if (!TShock.CharacterDB.InsertSpecificPlayerData(fake, data))
+                    {
+                        skipped.Add(player.name + "(TShock 拒绝写入，见服务器日志)");
+                        continue;
+                    }
+
                     restored.Add(player.name);
                 }
                 catch (Exception ex)
@@ -268,18 +276,29 @@ internal static class ArchiveExport
         try
         {
             var type = typeof(TSPlayer);
-            var field = type.GetField("<TPlayer>k__BackingField",
+            // TPlayer => FakePlayer ?? Main.player[Index]，所以真正的载体是 FakePlayer 字段
+            var field = type.GetField("FakePlayer",
+                            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                        ?? type.GetField("<TPlayer>k__BackingField",
                             BindingFlags.NonPublic | BindingFlags.Instance)
                         ?? type.GetField("TPlayer",
                             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            if (field == null)
+            if (field != null)
             {
-                TShock.Log.ConsoleError("[starZSEbot]找不到 TSPlayer.TPlayer 字段，无法回退角色");
-                return false;
+                field.SetValue(tsPlayer, player);
+                return true;
             }
 
-            field.SetValue(tsPlayer, player);
-            return true;
+            var prop = type.GetProperty("FakePlayer",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            if (prop != null && prop.CanWrite)
+            {
+                prop.SetValue(tsPlayer, player);
+                return true;
+            }
+
+            TShock.Log.ConsoleError("[starZSEbot]找不到 TSPlayer.FakePlayer，无法回退角色");
+            return false;
         }
         catch (Exception ex)
         {

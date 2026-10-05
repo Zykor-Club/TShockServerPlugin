@@ -441,7 +441,42 @@ internal static class ZSEBotApi
                 case PackageType.ArchiveExport:
                     // action 缺省/"export" = 导出并回传 base64（重置流程要把 zip 发给群）；
                     //          "backup"  = 只落盘做备份，不回传大文件（手动/定时备份用，省编码与流量）
+                    //          "list"    = 备份列表（编号/文件名/大小/时间），file 无
+                    //          "restore" = 回退：把指定备份里的玩家存档导入覆盖（file 传文件名）
                     var archAction = package.ReadOr<string>("action") ?? "export";
+                    if (string.Equals(archAction, "list", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var backups = ArchiveExport.ListBackups();
+                        var items = backups.Select((b, i) => new
+                        {
+                            no = i + 1,
+                            name = b.Name,
+                            size = b.Size,
+                            time = b.Time.ToString("yyyy-MM-dd HH:mm:ss")
+                        }).ToList();
+                        packetWriter.Write("count", items.Count).Write("items", items).Send();
+                        TShock.Log.ConsoleInfo($"[starZSEbot]收到备份列表请求：{items.Count} 份备份");
+                        break;
+                    }
+
+                    if (string.Equals(archAction, "restore", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var restoreFile = package.ReadOr<string>("file") ?? "";
+                        var res = ArchiveExport.RestorePlayerSaves(restoreFile);
+                        if (!res.Ok)
+                        {
+                            packetWriter.Write("error", res.Error ?? "回退失败").Send();
+                            break;
+                        }
+
+                        packetWriter
+                            .Write("file", System.IO.Path.GetFileName(restoreFile))
+                            .Write("restored", res.Restored)
+                            .Write("skipped", res.Skipped)
+                            .Send();
+                        break;
+                    }
+
                     var needB64 = !string.Equals(archAction, "backup", StringComparison.OrdinalIgnoreCase);
                     var archiveResult = ArchiveExport.Export(needB64);
                     if (archiveResult.Error == null)
