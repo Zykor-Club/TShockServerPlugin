@@ -16,7 +16,7 @@ public class StarZSEBot(Main game) : TerrariaPlugin(game)
     public static readonly Version VersionNum = new (2026, 07, 7, 1);
     internal static int InitCode = -1;
     internal static bool DebugMode = Program.LaunchParameters.ContainsKey("-zsdebug");
-    private const string CharacterInfoKey = "ZSEBot.CharacterInfo";
+    internal const string CharacterInfoKey = "ZSEBot.CharacterInfo";
     public override string Author => "starZSE联合体";
     public override string Description => "starZSEbot 机器人的适配插件";
     public override string Name => "starZSEbot";
@@ -87,6 +87,8 @@ public class StarZSEBot(Main game) : TerrariaPlugin(game)
         {
             _progressTimer = 0;
             ProgressNotify.Tick();
+            WorldResetGuard.Tick(); // 换世界 → 排行统计清零（约每 0.25 秒判定一次，代价是一次 int 比较）
+            BackupScheduler.Tick(); // 定时存档备份（同样只在 tick 里做几次比较，导出丢后台线程）
         }
 
         if (_timer >= 60 * 60 * 5)

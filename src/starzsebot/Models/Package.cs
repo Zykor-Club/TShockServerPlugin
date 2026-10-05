@@ -1,4 +1,4 @@
-﻿using ZSEBot.Enums;
+using ZSEBot.Enums;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
@@ -35,6 +35,19 @@ public class Package(Direction direction, PackageType type, bool isRequest, stri
 
     [JsonProperty("payload")]
     public Payload Payload = new ();
+
+    /// <summary>可选字段读取：键不存在时返回 fallback（默认值），不抛异常</summary>
+    public T? ReadOr<T>(string key, T? fallback = default)
+    {
+        try
+        {
+            return Read<T>(key);
+        }
+        catch (KeyNotFoundException)
+        {
+            return fallback;
+        }
+    }
 
     public T Read<T>(string key)
     {

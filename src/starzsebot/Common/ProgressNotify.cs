@@ -177,12 +177,14 @@ internal static class ProgressNotify
         {
             TShock.Log.ConsoleInfo(
                 $"[starZSEbot]首杀播报：{key}（玩家：{(players.Count == 0 ? "未知" : string.Join("、", players))}）");
-            new PackageWriter(PackageType.ProgressNotify, false, null)
+            var writer = new PackageWriter(PackageType.ProgressNotify, false, null)
                 .Write("boss_key", key)
                 .Write("players", players)
                 .Write("kill_time", killTime)
-                .Write("world_name", world)
-                .Send();
+                .Write("world_name", world);
+            // 首杀播报是低频关键包：不能因为正在发世界/地图/存档大包而等锁超时被静默丢弃
+            writer.Critical = true;
+            writer.Send();
         }
     }
 }

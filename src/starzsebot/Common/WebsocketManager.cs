@@ -1,7 +1,10 @@
 using ZSEBot.Enums;
 using Newtonsoft.Json.Linq;
 using System.Net;
+using System.Net.Security;
 using System.Net.WebSockets;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Runtime.InteropServices;
 using System.Text;
 using Terraria;
@@ -62,10 +65,23 @@ public static class WebsocketManager
             try
             {
                 WebSocket = new ClientWebSocket();
+                if (Config.Settings.UseTls)
+                {
+                    // 用 IP 直连时 .NET 不发 SNI → 绕开机房的域名过白拦截；
+                    // 代价是证书域名与 IP 不匹配，所以这里改为固定证书指纹校验（见 ValidateServerCertificate）
+                    WebSocket.Options.RemoteCertificateValidationCallback =
+                        (sender, certificate, chain, errors) => ValidateServerCertificate(certificate, errors);
+                }
+
                 while (string.IsNullOrEmpty(Config.Settings.Token))
                 {
                     await Task.Delay(TimeSpan.FromSeconds(10));
-                    HttpClient client = new ();
+                    // 轮询取 token 的 HttpClient 也必须走同一套证书校验：
+                    // 自签/指纹模式下默认校验会失败（域名不匹配），否则重新绑定时 HTTPS 轮询会直接报错
+                    HttpClientHandler handler = new ();
+                    handler.ServerCertificateCustomValidationCallback =
+                        (msg, cert, chain, errors) => ValidateServerCertificate(cert, errors);
+                    HttpClient client = new (handler);
                     client.Timeout = TimeSpan.FromSeconds(5.0);
                     var response = await client.GetAsync($"{HttpScheme}://{BotServerUrl}/server/token/{StarZSEBot.InitCode}");
                     if (response.StatusCode != HttpStatusCode.OK || Config.Settings.Token != "")
@@ -169,5 +185,48 @@ public static class WebsocketManager
 
             await Task.Delay(5000);
         }
+    }
+
+    /// <summary>
+    /// 服务器证书校验。固定指纹模式（默认）下：
+    ///   首次连接（指纹为空）→ 记住证书 SHA-256 指纹并放行（TOFU）；
+    ///   之后必须与记录完全一致，否则拒绝连接（防中间人）。
+    /// 关闭固定指纹时回退到系统默认校验结果（适用于机房已过白、用域名 + Let's Encrypt 证书的场景）。
+    /// </summary>
+    private static bool ValidateServerCertificate(X509Certificate? certificate, SslPolicyErrors errors)
+    {
+        if (!Config.Settings.PinCertificate)
+        {
+            return errors == SslPolicyErrors.None;
+        }
+
+        if (certificate is null)
+        {
+            TShock.Log.ConsoleError("[starZSEbot]TLS 校验失败：对端未提供证书");
+            return false;
+        }
+
+        var fingerprint = Convert.ToHexString(SHA256.HashData(certificate.GetRawCertData()));
+        var pinned = (Config.Settings.CertificateFingerprint ?? "")
+            .Replace(":", "").Replace(" ", "").Replace("-", "").Trim().ToUpperInvariant();
+
+        if (string.IsNullOrEmpty(pinned))
+        {
+            Config.Settings.CertificateFingerprint = fingerprint;
+            Config.Settings.Write();
+            TShock.Log.ConsoleInfo($"[starZSEbot]首次连接，已固定服务器证书指纹: {fingerprint}");
+            return true;
+        }
+
+        if (fingerprint == pinned)
+        {
+            return true;
+        }
+
+        TShock.Log.ConsoleError("[starZSEbot]服务器证书指纹不匹配，已拒绝连接！");
+        TShock.Log.ConsoleError($"  收到: {fingerprint}");
+        TShock.Log.ConsoleError($"  期望: {pinned}");
+        TShock.Log.ConsoleError("  若服务器确实换过证书，请清空 starZSEbot.json 里的「证书指纹」后重连。");
+        return false;
     }
 }

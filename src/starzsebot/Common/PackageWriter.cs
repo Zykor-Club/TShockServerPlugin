@@ -12,6 +12,13 @@ public class PackageWriter(PackageType packageType, bool isRequest, string? requ
     private static bool Debug => StarZSEBot.DebugMode;
     public Package Package = new (Direction.ToBot, packageType, isRequest, requestId);
 
+    /// <summary>
+    /// 关键包（白名单请求）：等发送锁的时间放宽到 90 秒。
+    /// 世界/地图/存档回包可达上百 MB，发送期间会长期占锁；若白名单请求按 10 秒超时被丢弃，
+    /// 正在握手的新玩家就会因收不到裁定而 15 秒超时被踢。
+    /// </summary>
+    public bool Critical;
+
     public PackageWriter Write(string key, object value)
     {
         this.Package.Payload.Add(key, value);
@@ -34,7 +41,8 @@ public class PackageWriter(PackageType packageType, bool isRequest, string? requ
 
             var messageBytes = Encoding.UTF8.GetBytes(message);
             // 后台线程发送，避免在游戏主线程上触碰 WebSocket
-            _ = Task.Run(() => SendSerializedAsync(messageBytes));
+            var critical = this.Critical;
+            _ = Task.Run(() => SendSerializedAsync(messageBytes, critical));
         }
         catch (Exception e)
         {
@@ -42,12 +50,16 @@ public class PackageWriter(PackageType packageType, bool isRequest, string? requ
         }
     }
 
-    private static async Task SendSerializedAsync(byte[] messageBytes)
+    private static async Task SendSerializedAsync(byte[] messageBytes, bool critical = false)
     {
-        // 取锁加超时：一次发送挂死（对端 TCP 半开等）不得让后续所有发包（心跳/白名单/回包）永久排队
-        if (!await SendLock.WaitAsync(TimeSpan.FromSeconds(10)))
+        // 取锁加超时：一次发送挂死（对端 TCP 半开等）不得让后续所有发包（心跳/白名单/回包）永久排队。
+        // 关键包（白名单请求）放宽到 90 秒——它决定正在握手的玩家能否进服，不能因为大包在发就被丢掉。
+        var wait = critical ? TimeSpan.FromSeconds(90) : TimeSpan.FromSeconds(10);
+        if (!await SendLock.WaitAsync(wait))
         {
-            TShock.Log.ConsoleInfo("[starZSEbot]发送数据包超时（等锁超过10秒），已丢弃该数据包");
+            TShock.Log.ConsoleInfo(critical
+                ? "[starZSEbot]白名单请求等锁超过90秒，已丢弃（该玩家将走超时踢出）"
+                : "[starZSEbot]发送数据包超时（等锁超过10秒），已丢弃该数据包");
             return;
         }
         try

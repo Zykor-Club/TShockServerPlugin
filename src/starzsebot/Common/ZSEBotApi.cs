@@ -108,6 +108,17 @@ internal static class ZSEBotApi
                         return;
                     }
 
+                    // 校验这条裁定确实对应本次握手请求：请求侧带了 id 就必须一致，
+                    // 否则视为伪造/重放的回包，直接忽略（该连接随后由 15 秒超时兜底踢出，fail-closed）
+                    var pendingId = LoginHelper.PendingReqIds[player.Index];
+                    LoginHelper.PendingReqIds[player.Index] = null;
+                    if (!string.IsNullOrEmpty(pendingId)
+                        && !string.Equals(pendingId, package.RequestId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        TShock.Log.ConsoleInfo($"[starZSEbot]白名单回包 request_id 不匹配（收到 {package.RequestId}，期望 {pendingId}），已忽略");
+                        return;
+                    }
+
                     // Accept → 直接自动注册/登录（免 /register /login），不走队列：
                     // 队列延迟一帧出队时连接可能已失效，导致 WorldInfo 永不发出（客户端卡「已找到会话」）
                     // 其余结果（未绑定/黑名单/未授权设备）踢出
@@ -404,11 +415,16 @@ internal static class ZSEBotApi
 
                     break;
                 case PackageType.ArchiveExport:
-                    var archiveResult = ArchiveExport.Export();
+                    // action 缺省/"export" = 导出并回传 base64（重置流程要把 zip 发给群）；
+                    //          "backup"  = 只落盘做备份，不回传大文件（手动/定时备份用，省编码与流量）
+                    var archAction = package.ReadOr<string>("action") ?? "export";
+                    var needB64 = !string.Equals(archAction, "backup", StringComparison.OrdinalIgnoreCase);
+                    var archiveResult = ArchiveExport.Export(needB64);
                     if (archiveResult.Error == null)
                     {
                         packetWriter
                             .Write("name", archiveResult.Name ?? "")
+                            .Write("size", archiveResult.Size)
                             .Write("base64", archiveResult.Base64 ?? "")
                             .Send();
                     }

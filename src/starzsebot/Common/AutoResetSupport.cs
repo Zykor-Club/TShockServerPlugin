@@ -159,7 +159,7 @@ internal static class AutoResetSupport
                 }
 
                 resetCommand.CommandDelegate.DynamicInvoke([null]);
-                return (true, null);
+                return DoneReset();
             }
 
             // 备选方案：从 ServerApi.Plugins 找到插件实例，反射调用私有 ResetCmd。
@@ -184,13 +184,20 @@ internal static class AutoResetSupport
             }
 
             method.Invoke(container.Plugin, [null]);
-            return (true, null);
+            return DoneReset();
         }
         catch (Exception ex)
         {
             TShock.Log.ConsoleError($"[starZSEbot]触发 AutoResetPlus 重置失败: {ex}");
             return (false, $"触发重置失败: {ex.Message}");
         }
+    }
+
+    /// <summary>重置已成功触发：立即清零排行统计（换世界也会被 WorldResetGuard 再兜一次，幂等）</summary>
+    private static (bool, string?) DoneReset()
+    {
+        ZSEBot.Models.ZSECharacterInfo.CleanAll();
+        return (true, null);
     }
 
     private static bool TryGetStatus(object pluginInstance, out string status)
