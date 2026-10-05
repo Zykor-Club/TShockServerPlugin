@@ -23,6 +23,7 @@ public enum PackageType
     AutoReset,
     ArchiveExport,
     ProgressNotify,
+    WorldSettings,
     Error,
     Unknown
 }
@@ -55,6 +56,7 @@ public static class PackageTypeExtension
             PackageType.AutoReset => new Version(2026, 10, 2),
             PackageType.ArchiveExport => new Version(2026, 10, 2),
             PackageType.ProgressNotify => new Version(2026, 10, 3),
+        PackageType.WorldSettings => new Version(2026, 10, 5),
             _ => new Version(2007, 5, 24)
         };
     }

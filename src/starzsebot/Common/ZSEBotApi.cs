@@ -414,6 +414,30 @@ internal static class ZSEBotApi
                     }
 
                     break;
+                case PackageType.WorldSettings:
+                    // action: "get"（缺省）= 读当前世界参数 + 配置里"下次重置用"的设置
+                    //         "set"        = 保存难度/大小/邪恶（空串表示恢复"跟随当前"）
+                    var wsAction = package.ReadOr<string>("action") ?? "get";
+                    if (string.Equals(wsAction, "set", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var (wsOk, wsErr) = WorldSettings.Update(
+                            package.ReadOr<string>("difficulty") ?? "",
+                            package.ReadOr<string>("size") ?? "",
+                            package.ReadOr<string>("evil") ?? "");
+                        if (!wsOk)
+                        {
+                            packetWriter.Write("error", wsErr ?? "保存地图设置失败").Send();
+                            break;
+                        }
+                    }
+
+                    foreach (var (wsKey, wsVal) in WorldSettings.Snapshot())
+                    {
+                        packetWriter.Write(wsKey, wsVal);
+                    }
+
+                    packetWriter.Send();
+                    break;
                 case PackageType.ArchiveExport:
                     // action 缺省/"export" = 导出并回传 base64（重置流程要把 zip 发给群）；
                     //          "backup"  = 只落盘做备份，不回传大文件（手动/定时备份用，省编码与流量）

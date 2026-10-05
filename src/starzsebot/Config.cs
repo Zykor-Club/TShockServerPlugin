@@ -66,6 +66,18 @@ public class Config
     [JsonProperty("备份保留份数")]
     public int BackupKeep = 10;
 
+    /// <summary>重置生成新世界时的难度：经典/专家/大师/旅行；留空 = 不干预（跟随当前）</summary>
+    [JsonProperty("地图难度")]
+    public string WorldDifficulty = "";
+
+    /// <summary>重置生成新世界时的大小：小/中/大；留空 = 不干预</summary>
+    [JsonProperty("世界大小")]
+    public string WorldSize = "";
+
+    /// <summary>重置生成新世界时的邪恶环境：腐化/猩红；留空 = 不干预</summary>
+    [JsonProperty("邪恶环境")]
+    public string WorldEvil = "";
+
 
     /// <summary>
     /// 将配置文件写入硬盘

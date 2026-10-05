@@ -131,6 +131,10 @@ internal static class AutoResetSupport
     {
         try
         {
+            // 先把 /世界设置 里的难度/大小/邪恶写进生成参数（此刻世界即将重建，改动安全），
+            // 这样"种子投票 → 重置"出来的新世界默认就按这些设置生成
+            WorldSettings.Apply();
+
             // 主方案：从聊天命令表中定位 AutoResetPlus 的 /reset 命令，直接调用其委托，绕过聊天权限。
             Command? resetCommand = null;
             object? pluginInstance = null;
