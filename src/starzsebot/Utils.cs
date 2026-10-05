@@ -232,8 +232,9 @@ internal static class Utils
         {
             fsForRead.Seek(0, SeekOrigin.Begin);
             var bs = new byte[fsForRead.Length];
-            var log = Convert.ToInt32(fsForRead.Length);
-            _ = fsForRead.Read(bs, 0, log);
+            // 必须读满：FileStream.Read 只保证「最多读这么多」，单次调用可能少读（大文件尤其明显）
+            // → 之前用 Read 会把世界文件/存档静默截断成半截 base64
+            fsForRead.ReadExactly(bs);
             base64Str = Convert.ToBase64String(bs);
             return base64Str;
         }

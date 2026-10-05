@@ -26,6 +26,9 @@ internal static class LoginHelper
     // 每槽位握手状态（与包到达顺序无关：平台包先到/后到都能取到真实平台）
     private const int MaxSlots = 256;
     private static readonly string?[] Uuids = new string?[MaxSlots];    // ClientUUID 包上报的设备 UUID
+
+    /// <summary>每个槽位本次白名单请求的 request_id：回包必须带上同一个 id，防止伪造/重放的 Accept 生效</summary>
+    internal static readonly string?[] PendingReqIds = new string?[MaxSlots];
     private static readonly bool[] PlatformSeen = new bool[MaxSlots];   // PlayerPlatformInfo 包是否已到
     private static readonly bool[] RequestSent = new bool[MaxSlots];    // 白名单请求是否已发出
     private static readonly long[] WaitDeadline = new long[MaxSlots];   // 等待平台包的兜底期限（TickCount64；0=无）
@@ -61,6 +64,8 @@ internal static class LoginHelper
         try
         {
             TickRequestTimeout();
+            // 换世界检测放这里：GamePostUpdate 在空服停摆，而 AutoResetPlus 可能趁没人时重置
+            WorldResetGuard.Tick();
         }
         catch (Exception ex)
         {
@@ -254,12 +259,15 @@ internal static class LoginHelper
         {
             try
             {
-                new PackageWriter(PackageType.Whitelist, false, null)
+                var reqId = Guid.NewGuid().ToString("N");
+                PendingReqIds[slot] = reqId;
+                var writer = new PackageWriter(PackageType.Whitelist, true, reqId)
                     .Write("player_name", body.name)
                     .Write("player_ip", body.ip)
                     .Write("player_uuid", body.uuid)
-                    .Write("player_platform", body.platform)
-                    .Send();
+                    .Write("player_platform", body.platform);
+                writer.Critical = true; // 关键包：不能被世界/地图/存档这类大包等锁挤掉
+                writer.Send();
             }
             catch (Exception ex)
             {
@@ -419,6 +427,23 @@ internal static class LoginHelper
         {
             TShock.CharacterDB.SyncSeededAppearance(account, player);
             player.PlayerData = TShock.CharacterDB.GetPlayerData(player, account.ID);
+        }
+
+        // 机器人已批准本设备（Accept 即授权凭据）→ 把 TShock 账号 UUID 同步为本次上报值，
+        // 这样账号的设备绑定与服务端记录一致，后续（含原生 /login 路径）比对才有意义
+        var reportedUuid = player.Index >= 0 && player.Index < MaxSlots ? Uuids[player.Index] : null;
+        if (!string.IsNullOrEmpty(reportedUuid)
+            && !string.Equals(account.UUID ?? "", reportedUuid, StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                TShock.UserAccounts.SetUserAccountUUID(account, reportedUuid);
+                account.UUID = reportedUuid;
+            }
+            catch (Exception ex)
+            {
+                TShock.Log.ConsoleError("[starZSEbot]同步账号 UUID 失败: " + ex);
+            }
         }
 
         player.Group = group;

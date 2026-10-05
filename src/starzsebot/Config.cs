@@ -20,6 +20,17 @@ public class Config
     [JsonProperty("启用TLS")]
     public bool UseTls = true;
 
+    /// <summary>
+    /// 固定服务器证书指纹（默认开）。机房常按 TLS SNI 域名做「过白」拦截，
+    /// 未过白就重置连接 → 我们用 IP 直连（.NET 对 IP 字面量不发 SNI）绕开，
+    /// 但此时证书域名与 IP 不匹配，不能走默认校验，改用固定指纹（首次连接自动记住 = TOFU）。
+    /// </summary>
+    [JsonProperty("固定证书指纹")]
+    public bool PinCertificate = true;
+
+    [JsonProperty("证书指纹")]
+    public string CertificateFingerprint = "";
+
     [JsonProperty("密钥")]
     public string Token = "";
 
@@ -34,6 +45,26 @@ public class Config
 
     [JsonProperty("白名单拦截提示的群号")]
     public long GroupNumber;
+
+    /// <summary>
+    /// 上次记录的世界 ID（= Terraria Main.worldID）：WorldResetGuard 用它判定「换了世界」，
+    /// 换了就清零排行统计。必须持久化，否则「重置后服务器重启」这条路径判定不出来。
+    /// 0 表示尚未记录（新装/升级后首次运行，只记录不清理）。
+    /// </summary>
+    [JsonProperty("上次世界ID")]
+    public int LastWorldId;
+
+    /// <summary>定时自动备份存档（导出 zip 落到 tshock/starZSEBot/Exports，只保留最近若干份）</summary>
+    [JsonProperty("自动备份开关")]
+    public bool AutoBackup = true;
+
+    /// <summary>自动备份间隔（小时），0 = 关闭（改配置后重载即生效）</summary>
+    [JsonProperty("自动备份间隔小时")]
+    public double BackupIntervalHours = 6;
+
+    /// <summary>保留最近几份备份（含重置前自动导出的那份），超出的最旧文件会被删除</summary>
+    [JsonProperty("备份保留份数")]
+    public int BackupKeep = 10;
 
 
     /// <summary>

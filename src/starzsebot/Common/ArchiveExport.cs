@@ -13,7 +13,8 @@ internal static class ArchiveExport
 {
     private const int PlayerFileVersion = 279; // Terraria 1.4.5 角色存档版本号
 
-    internal static (string? Name, string? Base64, string? Error) Export()
+    /// <param name="needBase64">是否需要回传 zip（重置流程要发给群；定时/手动备份只要落盘，省掉大文件编码与流量）</param>
+    internal static (string? Name, string? Base64, long Size, string? Error) Export(bool needBase64 = true)
     {
         var stageDir = "";
         try
@@ -90,21 +91,31 @@ internal static class ArchiveExport
             if (!CopyWorldFile(mapDir, safeWorldName))
             {
                 // 地图文件缺失/复制失败时不再假装成功：明确报错，机器人侧会中止重置并提示原因
-                return (null, null, "存档导出失败: 无法包含地图文件（世界文件缺失或复制失败，详见服务器日志）");
+                return (null, null, 0, "存档导出失败: 无法包含地图文件（世界文件缺失或复制失败，详见服务器日志）");
             }
 
             var zipPath = Path.Combine(exportRoot, $"{safeWorldName}_{timestamp}.zip");
             ZipFile.CreateFromDirectory(stageDir, zipPath, CompressionLevel.SmallestSize, false);
+            var size = new FileInfo(zipPath).Length;
+            // 备份清理：只保留最近 N 份（重置前导出的那份也算在内，正好当"重置前快照"）
+            var pruned = PruneOldZips(exportRoot, Config.Settings.BackupKeep);
 
-            TShock.Log.ConsoleInfo($"[starZSEbot]存档导出完成: {Path.GetFileName(zipPath)} (成功 {succeed}/{total}, 失败 {failed})");
+            TShock.Log.ConsoleInfo($"[starZSEbot]存档导出完成: {Path.GetFileName(zipPath)} "
+                + $"({size / 1024 / 1024} MB, 成功 {succeed}/{total}, 失败 {failed})"
+                + (pruned > 0 ? $"，已清理旧备份 {pruned} 份" : ""));
+
+            if (!needBase64)
+            {
+                return (Path.GetFileName(zipPath), null, size, null);
+            }
 
             var base64 = Utils.CompressBase64(Utils.FileToBase64String(zipPath));
-            return (Path.GetFileName(zipPath), base64, null);
+            return (Path.GetFileName(zipPath), base64, size, null);
         }
         catch (Exception ex)
         {
             TShock.Log.ConsoleError($"[starZSEbot]存档导出失败: {ex}");
-            return (null, null, $"存档导出失败: {ex.Message}");
+            return (null, null, 0, $"存档导出失败: {ex.Message}");
         }
         finally
         {
@@ -191,6 +202,40 @@ internal static class ArchiveExport
         {
             TShock.Log.ConsoleError($"[starZSEbot]导出世界文件失败: {ex.Message}");
             return false;
+        }
+    }
+
+    /// <summary>备份清理：按修改时间倒序只保留最近 keep 份 zip，其余删除；返回删除数量</summary>
+    internal static int PruneOldZips(string dir, int keep)
+    {
+        if (keep <= 0)
+        {
+            return 0;
+        }
+        try
+        {
+            var files = new DirectoryInfo(dir).GetFiles("*.zip")
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .ToList();
+            var removed = 0;
+            foreach (var f in files.Skip(keep))
+            {
+                try
+                {
+                    f.Delete();
+                    removed++;
+                }
+                catch (Exception ex)
+                {
+                    TShock.Log.ConsoleError($"[starZSEbot]清理旧备份失败: {f.Name} {ex.Message}");
+                }
+            }
+            return removed;
+        }
+        catch (Exception ex)
+        {
+            TShock.Log.ConsoleError($"[starZSEbot]清理旧备份异常: {ex.Message}");
+            return 0;
         }
     }
 

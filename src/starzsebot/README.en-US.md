@@ -57,11 +57,48 @@ Path: `tshock/starZSEbot.json` (generated automatically on first start)
 | 白名单开关 | bool | true | Enable whitelist check on join |
 | 服务器地址 | string | api.terraria.ink:22338 | Bot server address (host:port) |
 | 启用TLS | bool | true | Use https / wss for the bot server |
+| 固定证书指纹 | bool | true | Pin the server certificate's SHA-256 fingerprint instead of domain/CA validation (use together with connecting by raw IP) |
+| 证书指纹 | string | (empty) | Empty = pin automatically on first connect (TOFU). Clear it to re-pin after switching servers or certificate rotation |
 | 密钥 | string | (empty) | Assigned automatically after binding |
 | 群OpenID | string | 114514 | Assigned automatically after binding |
 | 在线显示进度 | bool | true | Append world progress text to player list packets |
 | 商店分组标签 | string | 生存服 | Shop tag used to filter goods |
 | 白名单拦截提示的群号 | long | 0 | QQ group id shown to kicked players (0 = hide) |
+
+## Connection & Certificate (read before deploying)
+
+### Recommended settings
+
+```json
+{
+  "服务器地址": "43.249.195.13:10214",
+  "启用TLS": true,
+  "固定证书指纹": true,
+  "证书指纹": ""
+}
+```
+
+**Use the raw IP, not a domain**; leave `证书指纹` empty — it is pinned automatically on the first connection.
+
+> When the bot runs on the **same machine** as the game server, use `127.0.0.1:13140`.
+
+### Why connect by IP instead of a domain?
+
+Some datacenters apply **DPI + domain whitelisting ("过白")** to inbound traffic: if the SNI domain in the TLS handshake is not registered with them the connection is **reset outright** (plain HTTP gets intercepted by their proxy and answered with a "contact the datacenter to whitelist your domain" page).
+
+.NET does **not send SNI for IP literals** (RFC 6066), so an IP connection completes the handshake normally. The trade-off is a certificate whose domain does not match the IP, which rules out standard validation — so this plugin **pins the server certificate's SHA-256 fingerprint** instead:
+
+- First connection (empty `证书指纹`): remember the peer fingerprint and accept it (Trust On First Use); logged as `首次连接，已固定服务器证书指纹: XXXX`
+- Every later connection: the fingerprint must match exactly, otherwise the connection is refused and both fingerprints are logged
+- A mismatch is **never** overwritten automatically — clear `证书指纹` manually once you have confirmed the server rotated its certificate
+
+### Troubleshooting
+
+| Log message | Cause / fix |
+| --- | --- |
+| `服务器证书指纹不匹配，已拒绝连接！` | The server really rotated its certificate: clear `证书指纹` and restart the plugin to re-pin |
+| `由于目标计算机积极拒绝` | Wrong address/port, or the port is not mapped by the datacenter |
+| `Bot断开连接` with no further detail | Make sure `启用TLS` matches the server; if the server serves TLS the client must enable it too |
 
 ## Binding flow
 
