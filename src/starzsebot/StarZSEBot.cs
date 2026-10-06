@@ -76,7 +76,7 @@ public class StarZSEBot(Main game) : TerrariaPlugin(game)
 
     private static int _timer;
     private static int _progressTimer;
-    private static int _playTimer;
+    private static DateTime _playLastUtc = DateTime.MinValue;
 
     private static void OnGameUpdate(EventArgs args)
     {
@@ -91,29 +91,42 @@ public class StarZSEBot(Main game) : TerrariaPlugin(game)
             WorldResetGuard.Tick(); // 换世界 → 排行统计清零（约每 0.25 秒判定一次，代价是一次 int 比较）
             BackupScheduler.Tick(); // 定时存档备份（同样只在 tick 里做几次比较，导出丢后台线程）
 
-            // 累计在线时长（永不重置）：约每 60 秒给在线玩家各 +60 秒
-            if (++_playTimer >= 240)
+            // 累计在线时长（永不重置）：按**真实经过时间**结算
+            // 注意：本钩子约每秒 60 次触发，绝不能按帧数折算秒数（否则会超发十几倍）
             {
-                _playTimer = 0;
-
-                Task.Run(() =>
+                var _nowUtc = DateTime.UtcNow;
+                if (_playLastUtc == DateTime.MinValue)
                 {
-                    try
+                    _playLastUtc = _nowUtc;
+                }
+                else if ((_nowUtc - _playLastUtc).TotalSeconds >= 60)
+                {
+                    var _elapsed = (long) (_nowUtc - _playLastUtc).TotalSeconds;
+                    _playLastUtc = _nowUtc;
+                    var _names = TShock.Players.Where(p => p is { Active: true })
+                        .Select(p => p?.Account?.Name)
+                        .Where(n => !string.IsNullOrWhiteSpace(n))
+                        .Select(n => n!)
+                        .Distinct()
+                        .ToList();
+                    if (_names.Count > 0)
                     {
-                        foreach (var p in TShock.Players.Where(x => x is { Active: true }))
+                        Task.Run(() =>
                         {
-                            var name = p?.Account?.Name;
-                            if (!string.IsNullOrWhiteSpace(name))
+                            try
                             {
-                                Models.PlayTime.Add(name!, 60);
+                                foreach (var _n in _names)
+                                {
+                                    Models.PlayTime.Add(_n, _elapsed);
+                                }
                             }
-                        }
+                            catch (Exception ex)
+                            {
+                                TShock.Log.ConsoleError($"[starZSEbot]在线时长累计异常: {ex.Message}");
+                            }
+                        });
                     }
-                    catch (Exception ex)
-                    {
-                        TShock.Log.ConsoleError($"[starZSEbot]在线时长累计异常: {ex.Message}");
-                    }
-                });
+                }
             }
         }
 
