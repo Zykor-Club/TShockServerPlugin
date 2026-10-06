@@ -1,4 +1,4 @@
-﻿using ZSEBot.Models;
+using ZSEBot.Models;
 using LinqToDB;
 using LinqToDB.Common;
 using LinqToDB.Data;
@@ -20,6 +20,8 @@ public static class Database
         db.CreateTable<BossKillInfo>(tableOptions: TableOptions.CreateIfNotExists);
         db.CreateTable<ZSECharacterInfo>(tableOptions: TableOptions.CreateIfNotExists);
         db.CreateTable<Mail>(tableOptions: TableOptions.CreateIfNotExists);
+        // 累计在线时长（永不重置）
+        db.CreateTable<PlayTime>(tableOptions: TableOptions.CreateIfNotExists);
     }
 
     private static string GetProvider()

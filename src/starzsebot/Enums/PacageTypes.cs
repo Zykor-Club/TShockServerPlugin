@@ -24,6 +24,7 @@ public enum PackageType
     ArchiveExport,
     ProgressNotify,
     WorldSettings,
+    PlayTime,
     Error,
     Unknown
 }
@@ -57,6 +58,7 @@ public static class PackageTypeExtension
             PackageType.ArchiveExport => new Version(2026, 10, 2),
             PackageType.ProgressNotify => new Version(2026, 10, 3),
         PackageType.WorldSettings => new Version(2026, 10, 5),
+        PackageType.PlayTime => new Version(2026, 10, 6),
             _ => new Version(2007, 5, 24)
         };
     }

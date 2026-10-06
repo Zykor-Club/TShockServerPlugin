@@ -76,6 +76,7 @@ public class StarZSEBot(Main game) : TerrariaPlugin(game)
 
     private static int _timer;
     private static int _progressTimer;
+    private static int _playTimer;
 
     private static void OnGameUpdate(EventArgs args)
     {
@@ -89,6 +90,31 @@ public class StarZSEBot(Main game) : TerrariaPlugin(game)
             ProgressNotify.Tick();
             WorldResetGuard.Tick(); // 换世界 → 排行统计清零（约每 0.25 秒判定一次，代价是一次 int 比较）
             BackupScheduler.Tick(); // 定时存档备份（同样只在 tick 里做几次比较，导出丢后台线程）
+
+            // 累计在线时长（永不重置）：约每 60 秒给在线玩家各 +60 秒
+            if (++_playTimer >= 240)
+            {
+                _playTimer = 0;
+
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        foreach (var p in TShock.Players.Where(x => x is { Active: true }))
+                        {
+                            var name = p?.Account?.Name;
+                            if (!string.IsNullOrWhiteSpace(name))
+                            {
+                                Models.PlayTime.Add(name!, 60);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        TShock.Log.ConsoleError($"[starZSEbot]在线时长累计异常: {ex.Message}");
+                    }
+                });
+            }
         }
 
         if (_timer >= 60 * 60 * 5)

@@ -414,6 +414,16 @@ internal static class ZSEBotApi
                     }
 
                     break;
+                case PackageType.PlayTime:
+                    // 累计在线时长（永不重置）：返回全部账号的秒数，机器人侧按账号跨服汇总（取最大）
+                    packetWriter
+                        .Write("items", Models.PlayTime.All().Select(p => new
+                        {
+                            account = p.AccountName,
+                            seconds = p.Seconds
+                        }).ToList())
+                        .Send();
+                    break;
                 case PackageType.WorldSettings:
                     // action: "get"（缺省）= 读当前世界参数 + 配置里"下次重置用"的设置
                     //         "set"        = 保存难度/大小/邪恶（空串表示恢复"跟随当前"）
