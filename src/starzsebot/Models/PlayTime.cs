@@ -68,11 +68,16 @@ public class PlayTime
         try
         {
             using var db = Database.Db;
-            return db.GetTable<PlayTime>().OrderByDescending(p => p.Seconds).ToList();
+            // 直接 SQL：避开 ORM 映射差异（字段/属性、类型推断）导致的"查不到行"
+            var rows = db.Query<PlayTime>(
+                "SELECT account_name AS AccountName, seconds AS Seconds, updated_at AS UpdatedAt " +
+                "FROM zse_playtime ORDER BY seconds DESC").ToList();
+            TShockAPI.TShock.Log.ConsoleInfo($"[starZSEbot]playtime rows={rows.Count}");
+            return rows;
         }
         catch (Exception ex)
         {
-            TShockAPI.TShock.Log.ConsoleError($"[starZSEbot]读取在线时长失败: {ex.Message}");
+            TShockAPI.TShock.Log.ConsoleError($"[starZSEbot]playtime read failed: {ex.Message}");
             return [];
         }
     }
