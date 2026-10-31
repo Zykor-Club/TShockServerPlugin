@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <Import Project="..\..\template.targets" />
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <AssemblyName>AIAgent</AssemblyName>
+        <RootNamespace>AIAgent</RootNamespace>
+        <Version>2.0.0.0</Version>
+        <Authors>星梦</Authors>
+        <Description>接入大模型的服务器智能助手：聊天、长期记忆、工具调用与事件播报</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- 仓库模板统一用 TShock 6.1.0；本插件面向 6.2.1 运行时，覆盖一下版本 -->
+        <PackageReference Update="TShock" Version="6.2.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="Assets\persona.md" LogicalName="AIAgent.persona.md" />
+        <EmbeddedResource Include="Assets\wiki.json" LogicalName="AIAgent.wiki.json" />
+    </ItemGroup>
+</Project>
