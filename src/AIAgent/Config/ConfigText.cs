@@ -107,6 +107,11 @@ public static class ConfigText
         ["指令.启用"] = "是否把 run_command / list_commands 交给模型",
         ["禁止指令"] = "无论玩家权限如何都不给 AI 的指令",
 
+        // ---------- 知识库 ----------
+        ["知识库"] = "离线 Wiki 的存储方式",
+        ["引擎"] = "json = 全内存（默认）；sqlite = FTS5；auto = 有库用库，没库用 json",
+        ["数据库文件"] = "SQLite 文件名，放在 tshock/AIAgent/ 下",
+
         // ---------- 工具 ----------
         ["工具"] = "单个工具的开关与每日次数；键名是工具名",
 

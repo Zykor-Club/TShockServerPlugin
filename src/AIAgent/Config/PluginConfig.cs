@@ -52,6 +52,9 @@ public sealed class PluginConfig
     [JsonPropertyName("指令")]
     public CommandSettings Commands { get; set; } = new();
 
+    [JsonPropertyName("知识库")]
+    public WikiSettings Wiki { get; set; } = new();
+
     [JsonPropertyName("工具")]
     public Dictionary<string, ToolSettings> Tools { get; set; } = new()
     {
@@ -290,6 +293,16 @@ public sealed class GreetingSettings
 
     [JsonPropertyName("公屏")]
     public bool Public { get; set; }
+}
+
+public sealed class WikiSettings
+{
+    /// <summary>json = 全内存；sqlite = FTS5 数据库；auto = 有库用库，没库用 json。</summary>
+    [JsonPropertyName("引擎")]
+    public string Engine { get; set; } = "json";
+
+    [JsonPropertyName("数据库文件")]
+    public string Database { get; set; } = "wiki.db";
 }
 
 public sealed class ToolSettings

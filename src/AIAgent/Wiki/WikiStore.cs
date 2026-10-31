@@ -39,7 +39,7 @@ public sealed record WikiHit(string Title, string Url, string Excerpt, double Sc
 /// 离线 Wiki 知识库：启动时把 wiki.json 读进内存，用中文二元组匹配做检索。
 /// 数据是"资料"，注入时必须声明不是指令。
 /// </summary>
-public sealed class WikiStore
+public sealed class WikiStore : IWikiSource
 {
     private readonly List<WikiPage> _pages;
     private readonly Dictionary<WikiPage, HashSet<string>> _titleBigrams = new();
@@ -54,6 +54,8 @@ public sealed class WikiStore
     }
 
     public int Count => _pages.Count;
+
+    public string Engine => "json";
 
     public static WikiStore Load(string path)
     {

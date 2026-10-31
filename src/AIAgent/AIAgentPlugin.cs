@@ -50,7 +50,7 @@ public sealed class AIAgentPlugin : TerrariaPlugin
         PluginState.Compressor = new SessionCompressor();
         SessionPersistence.Load(PluginState.DataDirectory);
         PluginState.Persona = LoadPersona();
-        PluginState.Wiki = WikiStore.Load(Path.Combine(PluginState.DataDirectory, "wiki.json"));
+        PluginState.Wiki = LoadWiki();
         GreetingService.EnsureLoaded();
 
         var registry = new ToolRegistry();
@@ -190,9 +190,40 @@ public sealed class AIAgentPlugin : TerrariaPlugin
     {
         PluginState.Config = PluginState.Store.Load();
         PluginState.Persona = LoadPersona();
-        PluginState.Wiki = WikiStore.Load(Path.Combine(PluginState.DataDirectory, "wiki.json"));
+        PluginState.Wiki = LoadWiki();
         PluginLog.Info($"配置已重新加载 | 模型 {PluginState.Config.Model}");
         args.Player?.SendSuccessMessage("[AIAgent] 配置已重新加载");
+    }
+
+    private static Wiki.IWikiSource LoadWiki()
+    {
+        var cfg = PluginState.Config.Wiki;
+        var json = Path.Combine(PluginState.DataDirectory, "wiki.json");
+        var db = Path.Combine(PluginState.DataDirectory, cfg.Database);
+        var engine = (cfg.Engine ?? "json").Trim().ToLowerInvariant();
+
+        if (engine is "sqlite" or "auto")
+        {
+            try
+            {
+                if (!File.Exists(db) && engine == "sqlite" && File.Exists(json))
+                {
+                    var built = Wiki.WikiDatabase.Build(json, db);
+                    PluginLog.Info($"知识库已建库: {built} 页 → {db}");
+                }
+
+                if (File.Exists(db))
+                {
+                    return Wiki.SqliteWikiStore.Open(db);
+                }
+            }
+            catch (Exception ex)
+            {
+                PluginLog.Error("SQLite 知识库加载失败，回退 JSON", ex);
+            }
+        }
+
+        return Wiki.WikiStore.Load(json);
     }
 
     private static string LoadPersona()
