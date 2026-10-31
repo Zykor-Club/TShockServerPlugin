@@ -37,7 +37,7 @@ public static class PluginState
 
     public static ToolInvoker Tools { get; internal set; } = null!;
 
-    public static WikiStore Wiki { get; internal set; } = null!;
+    public static IWikiSource Wiki { get; internal set; } = null!;
 
     private static Lazy<RecipeIndex> _recipes = new(() => RecipeIndex.Build(), LazyThreadSafetyMode.ExecutionAndPublication);
 

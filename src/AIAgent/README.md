@@ -115,6 +115,14 @@
 }
 ```
 
+## 知识库
+
+- 默认 `json`：启动时把 `wiki.json` 读进内存，中文二元组检索，98 页约 20ms；
+- `sqlite`：使用 SQLite + FTS5（trigram）检索，适合上万页；首次加载时若没有 `wiki.db` 会自动从 `wiki.json` 建库；
+- `auto`：有库用库，没库用 json。
+
+完整中文 Wiki 约 5,497 条，可通过 MediaWiki API 批量导出（不是爬 HTML）。批量 `wikitext` 转换质量受模板影响较大，推荐用 `prop=extracts` 逐条导出纯文本。
+
 ## 人设
 
 - 默认读取 `tshock/AIAgent/persona.md`，首次启动会从插件内嵌资源释放一份；
