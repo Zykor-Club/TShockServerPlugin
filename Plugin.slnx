@@ -19,4 +19,5 @@
   <Project Path="src/MidiPlayer/MidiPlayer.csproj" />
   <Project Path="src/starzsebot/starzsebot.csproj" />
   <Project Path="src/AutoResetPlus/AutoResetPlus.csproj" />
+  <Project Path="src/AIAgent/AIAgent.csproj" />
 </Solution>
