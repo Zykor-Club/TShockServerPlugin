@@ -134,10 +134,14 @@ public static class ChatService
 
             messages.Add(ChatMessage.User(input));
 
-            var toolSchema = cfg.EnableTools
+            var toolSchema = cfg.EnableTools && provider.SupportsTools
                 ? await BuildSchemaOnMainAsync(player).ConfigureAwait(false)
                 : new JsonArray();
             var useTools = toolSchema.Count > 0;
+
+            var model = string.IsNullOrWhiteSpace(cfg.Model)
+                ? provider.DefaultModel ?? "deepseek-chat"
+                : cfg.Model;
 
             var client = new OpenAiCompatClient(provider.BaseUrl, provider.ApiKey);
             var emitter = new BubbleEmitter(player, cfg, mode);
@@ -153,7 +157,7 @@ public static class ChatService
                 var options = new ChatOptions(
                     provider.BaseUrl,
                     provider.ApiKey,
-                    cfg.Model,
+                    model,
                     messages,
                     cfg.Temperature,
                     MaxTokens: 0,
@@ -226,7 +230,7 @@ public static class ChatService
             {
                 // 轮次用完还没正文：强制一次不带工具的收尾，保证玩家拿到回答
                 var closing = new ChatOptions(
-                    provider.BaseUrl, provider.ApiKey, cfg.Model, messages,
+                    provider.BaseUrl, provider.ApiKey, model, messages,
                     cfg.Temperature, 0, cfg.EnableStream,
                     provider.MaxTokensParam, provider.SupportsTemperature, provider.SupportsStreamUsage,
                     Tools: null);
@@ -241,7 +245,7 @@ public static class ChatService
                         ChatMessage.System("现在不能调用任何工具。请直接用一两句话把已经完成/失败的结果告诉玩家。"),
                     };
                     var closing2 = new ChatOptions(
-                        provider.BaseUrl, provider.ApiKey, cfg.Model, forced,
+                        provider.BaseUrl, provider.ApiKey, model, forced,
                         cfg.Temperature, 0, cfg.EnableStream,
                         provider.MaxTokensParam, provider.SupportsTemperature, provider.SupportsStreamUsage,
                         Tools: null);

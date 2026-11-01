@@ -138,9 +138,6 @@ public sealed class ProviderConfig
     [JsonPropertyName("地址")]
     public string BaseUrl { get; set; } = string.Empty;
 
-    [JsonPropertyName("协议")]
-    public string Protocol { get; set; } = "openai";
-
     [JsonPropertyName("最大Token参数")]
     public string MaxTokensParam { get; set; } = "max_tokens";
 

@@ -84,8 +84,19 @@ public sealed class ToolInvoker
             var result = await ExecuteOnMainAsync(tool, args, player).ConfigureAwait(false);
             watch.Stop();
 
-            batch.Messages.Add(ToolMessage(call.Id, result.Ok ? result.PayloadJson : "执行失败"));
-            Audit(player, call.Name, tool.Describe(args), call.Arguments, result.Ok ? "ok" : "error", reqId, watch.ElapsedMilliseconds);
+            var businessFail = result.PayloadJson.Contains("\"ok\":false", StringComparison.Ordinal);
+            if (!result.Ok || businessFail)
+            {
+                // 没真正做成，不占配额
+                RefundQuota(subjectKey, tool.Name);
+            }
+
+            var payload = result.Ok
+                ? result.PayloadJson
+                : "{\"ok\":false,\"reason\":\"执行失败（超时或异常），可以换个方式再试\"}";
+            batch.Messages.Add(ToolMessage(call.Id, payload));
+            Audit(player, call.Name, tool.Describe(args), call.Arguments,
+                result.Ok && !businessFail ? "ok" : "error", reqId, watch.ElapsedMilliseconds);
         }
 
         return batch;
@@ -130,6 +141,15 @@ public sealed class ToolInvoker
 
         var key = $"{subjectKey}|{tool}|{DateTime.Today:yyyyMMdd}";
         return _quota.TryGetValue(key, out var used) && used >= settings.DailyLimit;
+    }
+
+    private void RefundQuota(string subjectKey, string tool)
+    {
+        var cfg = PluginState.Config;
+        if (!cfg.Tools.TryGetValue(tool, out var settings) || settings.DailyLimit <= 0) return;
+
+        var key = $"{subjectKey}|{tool}|{DateTime.Today:yyyyMMdd}";
+        _quota.AddOrUpdate(key, 0, (_, current) => Math.Max(0, current - 1));
     }
 
     private bool ConsumeQuota(string subjectKey, string tool)

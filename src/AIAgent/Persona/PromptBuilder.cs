@@ -69,23 +69,13 @@ public static class PromptBuilder
         {
             sb.AppendLine();
             sb.AppendLine("【分身】" + avatarHint);
-            sb.AppendLine("分身使用手册：");
-            sb.AppendLine("- 分身会自己走路、跳、开门、打附近怪；你的指令会覆盖它当前的行为。");
-            sb.AppendLine("- avatar_goto 的坐标单位是格，不是像素；距离超过 100 格它会直接传送过去，到达后停住。");
-            sb.AppendLine("- avatar_follow 会让它跟着目标并自动打附近的怪；avatar_attack 只打你指定/最近的一只；avatar_stop 全部停下。");
-            sb.AppendLine("- 分身说的话显示成\"假人 00001\"说的，不是你本人；要它说话就用 avatar_say，不要用聊天消息冒充。");
-            sb.AppendLine("- 一次只下一个指令，做完用 avatar_status 确认结果；不要连续下互相冲突的指令。");
-            sb.AppendLine("- 不确定周围有什么（有没有怪、玩家、矿）就先用 avatar_scan；状态里 stuck=true 说明它卡住了，改坐标、改成跟随，或先 stop。");
-            sb.AppendLine("- 玩家要求分身做/停止做某件事时，必须真的调用对应工具；没调用就不能说“已经做了”。说“停下了”之前必须是 avatar_stop 调成功了。");
-            sb.AppendLine("- avatar_stop 是原地站住且不还手，不是继续漫游；想让它重新活动用 avatar_follow 或 avatar_goto。attacking=true 表示它在打怪，不是卡住。");
-            sb.AppendLine("- avatar_pvp 控制分身是否可被玩家攻击；打开后它不会主动打玩家。avatar_status 里的 recentDamage 是最近一次受伤记录（来源和 PvP 标记）。");
-            sb.AppendLine("- 你有一个游戏分身（假人）：需要它说话用 avatar_say，跟随用 avatar_follow，走过去用 avatar_goto，打怪用 avatar_attack，停下用 avatar_stop。分身说的话不是你本人的聊天，不要用聊天消息冒充它。");
-            sb.AppendLine("- 要它“边守边打”用 avatar_guard，要它“完全站住别还手”用 avatar_stop。");
-            sb.AppendLine("- 玩家说“跟着我/跟我来”时，avatar_follow 的 target 留空（默认跟说话的人），不要填“主人”“我”这种称呼。");
-            sb.AppendLine("- 玩家说“不要跟着我/别跟/停下”时，只调用 avatar_stop，绝对不要调用 avatar_follow（否定句里的“跟着”不是指令）。");
-            sb.AppendLine("- 玩家只是问“在哪/在干嘛/状态”时，只调用 avatar_status，不要顺带 stop/follow/goto。");
-            sb.AppendLine("- 目标类指令：守一片区域用 avatar_guard（可只给半径，默认守当前位置），巡逻用 avatar_patrol（2~6 个点），回城用 avatar_return。目标是持续执行的，不要反复下。");
-            sb.AppendLine("- 玩家说\"跟着我\"→avatar_follow；说\"去左边/上面看看\"→先 avatar_status 拿坐标，再用 avatar_goto 偏移几十格；说\"打它\"→avatar_attack。");
+            sb.AppendLine("- 坐标单位是格；goto 超过 100 格会传送、到达后停住；follow 自动打怪；guard 守点还手；stop 原地不还手；patrol 2~6 点；return 回城。");
+            sb.AppendLine("- 要分身说话用 avatar_say（显示成它自己的名字），不要用聊天冒充它；pvp 打开后玩家可攻击它，它不主动打玩家。");
+            sb.AppendLine("- 一次只下一个指令；做完/卡住用 avatar_status 或 avatar_scan 确认；attacking=true 是在打怪，不是卡住。");
+            sb.AppendLine("- 玩家要求分身做事时必须真的调工具，没调不能说“已经做了”。");
+            sb.AppendLine("- “跟着我”→follow 且 target 留空；“不要跟着我/别跟”→只 stop；“在哪/在干嘛”→只 status。");
+            sb.AppendLine("- 守一片用 guard，完全站住用 stop；去某处先 status 拿坐标再 goto 偏移。");
+            sb.AppendLine("- 分身不能挖矿/建造，只能告诉你矿的位置。");
         }
 
         if (!string.IsNullOrWhiteSpace(taskHint))

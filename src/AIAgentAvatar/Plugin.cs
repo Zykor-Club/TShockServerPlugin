@@ -68,6 +68,20 @@ public class Plugin(Main game) : TerrariaPlugin(game)
     private static void ReloadConfig(ReloadEventArgs args)
     {
         LoadConfig();
+
+        // 发言 / PVP 可以热更新到现存分身
+        for (var i = 0; i < Fakes.Length; i++)
+        {
+            var dp = Fakes[i];
+            if (dp is null || !dp.Active) continue;
+
+            dp.SpeakEnabled = Config.Speak;
+            if (dp.PvpEnabled != Config.Pvp)
+            {
+                dp.SetPvp(Config.Pvp);
+            }
+        }
+
         args.Player.SendMessage($"[{PluginName}]重新加载配置完毕。", color);
     }
     private static void LoadConfig()
