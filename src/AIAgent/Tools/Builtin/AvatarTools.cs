@@ -54,7 +54,7 @@ internal static class AvatarToolHelper
 public sealed class AvatarStatusTool : ITool
 {
     public string Name => "avatar_status";
-    public string Description => "查看你的游戏分身（假人）的状态：是否在线、在做什么、位置、血量、在跟谁。";
+    public string Description => "查看分身的实时状态（是否在线、在做什么、坐标、血量、跟随目标）。下 goto/attack 之前先用它确认位置。";
     public string Permission => AvatarToolHelper.Permission;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false };
@@ -72,7 +72,7 @@ public sealed class AvatarStatusTool : ITool
 public sealed class AvatarSayTool : ITool
 {
     public string Name => "avatar_say";
-    public string Description => "让你的分身（假人）在公屏说一句话。这是分身说话的唯一方式，不要用聊天消息冒充它。";
+    public string Description => "让分身在公屏说一句话，会显示成它自己的名字。这是分身说话的唯一方式，不要用聊天消息冒充它。";
     public string Permission => AvatarToolHelper.Permission;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new()
@@ -108,7 +108,7 @@ public sealed class AvatarSayTool : ITool
 public sealed class AvatarFollowTool : ITool
 {
     public string Name => "avatar_follow";
-    public string Description => "让分身跟着某个玩家（默认跟你）。分身会自动帮忙打附近的怪。";
+    public string Description => "让分身跟着某个玩家（默认跟你），并自动打附近的怪。会取消之前的 goto 和指定攻击目标。";
     public string Permission => AvatarToolHelper.Permission;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new()
@@ -134,14 +134,14 @@ public sealed class AvatarFollowTool : ITool
             return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = "找不到这个在线玩家" }));
 
         var ok = AvatarBridge.Follow(target);
-        return new ToolResult(true, ToolArgs.Ok(new { ok, target = target.Name }));
+        return new ToolResult(true, ToolArgs.Ok(new { ok, target = target.Name, avatar = AvatarToolHelper.Snapshot() }));
     }
 }
 
 public sealed class AvatarGotoTool : ITool
 {
     public string Name => "avatar_goto";
-    public string Description => "让分身走到指定坐标（单位是格，不是像素）。到达后会停在原地，除非再下指令。";
+    public string Description => "让分身走到指定坐标（单位是格，不是像素）。距离超过 100 格会直接传送；到达后停在原地。会取消跟随。";
     public string Permission => AvatarToolHelper.Permission;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new()
@@ -169,14 +169,14 @@ public sealed class AvatarGotoTool : ITool
             return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = "坐标超出世界范围" }));
 
         var ok = AvatarBridge.Goto(x * 16f, y * 16f);
-        return new ToolResult(true, ToolArgs.Ok(new { ok, target = new { x, y } }));
+        return new ToolResult(true, ToolArgs.Ok(new { ok, target = new { x, y }, avatar = AvatarToolHelper.Snapshot() }));
     }
 }
 
 public sealed class AvatarAttackTool : ITool
 {
     public string Name => "avatar_attack";
-    public string Description => "让分身去打附近的一只怪（默认最近的敌对 NPC）。";
+    public string Description => "让分身去打附近最近的一只敌对 NPC。附近没有怪时返回 ok=false；会取消跟随和定点。";
     public string Permission => AvatarToolHelper.Permission;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false };
@@ -199,14 +199,14 @@ public sealed class AvatarAttackTool : ITool
             return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = "附近没有可攻击的怪" }));
 
         var ok = AvatarBridge.Attack(target.whoAmI);
-        return new ToolResult(true, ToolArgs.Ok(new { ok, target = Lang.GetNPCNameValue(target.type) }));
+        return new ToolResult(true, ToolArgs.Ok(new { ok, target = Lang.GetNPCNameValue(target.type), avatar = AvatarToolHelper.Snapshot() }));
     }
 }
 
 public sealed class AvatarStopTool : ITool
 {
     public string Name => "avatar_stop";
-    public string Description => "让分身停下来：不再跟随、不再攻击、不再乱走。";
+    public string Description => "让分身停下：取消跟随、指定目标和定点，回到自由漫游。";
     public string Permission => AvatarToolHelper.Permission;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false };
@@ -217,6 +217,7 @@ public sealed class AvatarStopTool : ITool
         if (!AvatarToolHelper.Ready(out var error))
             return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = error }));
 
-        return new ToolResult(true, ToolArgs.Ok(new { ok = AvatarBridge.Stop() }));
+        var ok = AvatarBridge.Stop();
+        return new ToolResult(true, ToolArgs.Ok(new { ok, avatar = AvatarToolHelper.Snapshot() }));
     }
 }

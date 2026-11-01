@@ -25,7 +25,8 @@ public static class PromptBuilder
         IReadOnlyList<string> recentChat,
         string careHint,
         int affinity,
-        string taskHint)
+        string taskHint,
+        string avatarHint)
     {
         var sb = new StringBuilder();
 
@@ -64,6 +65,19 @@ public static class PromptBuilder
 
         var tier = AffinityTier.Describe(affinity);
         sb.AppendLine($"你和他现在的关系：{tier.Tier}（好感度 {affinity}/100）。可以叫他「{tier.Address}」，语气{tier.Tone}。");
+
+        if (!string.IsNullOrWhiteSpace(avatarHint))
+        {
+            sb.AppendLine();
+            sb.AppendLine("【分身】" + avatarHint);
+            sb.AppendLine("分身使用手册：");
+            sb.AppendLine("- 分身会自己走路、跳、开门、打附近怪；你的指令会覆盖它当前的行为。");
+            sb.AppendLine("- avatar_goto 的坐标单位是格，不是像素；距离超过 100 格它会直接传送过去，到达后停住。");
+            sb.AppendLine("- avatar_follow 会让它跟着目标并自动打附近的怪；avatar_attack 只打你指定/最近的一只；avatar_stop 全部停下。");
+            sb.AppendLine("- 分身说的话显示成\"假人 00001\"说的，不是你本人；要它说话就用 avatar_say，不要用聊天消息冒充。");
+            sb.AppendLine("- 一次只下一个指令，做完用 avatar_status 确认结果；不要连续下互相冲突的指令。");
+            sb.AppendLine("- 玩家说\"跟着我\"→avatar_follow；说\"去左边/上面看看\"→先 avatar_status 拿坐标，再用 avatar_goto 偏移几十格；说\"打它\"→avatar_attack。");
+        }
 
         if (!string.IsNullOrWhiteSpace(taskHint))
         {

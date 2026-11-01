@@ -101,10 +101,11 @@ public static class ChatService
             var emotionHint = EmotionDetector.Hint(EmotionDetector.Detect(isEvent ? string.Empty : input));
             var careHint = isEvent ? string.Empty : CareService.LateNightHint(key, DateTime.Now, cfg.Care);
             var taskHint = BuildTaskHint(input);
+            var avatarHint = BuildAvatarHint();
             var system = PromptBuilder.BuildSystem(
                 cfg, playerName, subject?.GroupName, DateTime.Now,
                 memoryBlock, PluginState.Persona, Crafting.WorldProgress.CachedBrief,
-                emotionHint, sessionSummary, recentChat, careHint, affinity, taskHint);
+                emotionHint, sessionSummary, recentChat, careHint, affinity, taskHint, avatarHint);
             var messages = new List<ChatMessage> { ChatMessage.System(system) };
 
             if (cfg.Memory.Enabled && !isEvent)
@@ -248,6 +249,19 @@ public static class ChatService
         {
             PluginState.Limiter.End(rateKey);
         }
+    }
+
+    /// <summary>给提示词用的分身状态，模型不用先调 avatar_status 就能判断。</summary>
+    private static string BuildAvatarHint()
+    {
+        if (!Avatar.AvatarBridge.Available) return string.Empty;
+
+        var s = Avatar.AvatarBridge.Status();
+        if (s is null) return "分身还没有创建（需要管理员 /fake add）。";
+
+        var follow = string.IsNullOrWhiteSpace(s.Follow) ? "没有跟随任何人" : "正在跟随 " + s.Follow;
+        return $"分身在线：{s.State}，位置约 ({Math.Round(s.X / 16f)},{Math.Round(s.Y / 16f)}) 格，" +
+               $"血量 {s.Life}/{s.LifeMax}，{follow}。";
     }
 
     private static async Task<JsonArray> BuildSchemaOnMainAsync(TSPlayer player)
