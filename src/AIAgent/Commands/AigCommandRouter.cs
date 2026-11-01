@@ -80,6 +80,9 @@ public static class AigCommandRouter
         ["avatar_goto"] = "让分身走过去",
         ["avatar_attack"] = "让分身打怪",
         ["avatar_scan"] = "扫分身周围",
+        ["avatar_guard"] = "让分身守点",
+        ["avatar_patrol"] = "让分身巡逻",
+        ["avatar_return"] = "让分身回城",
         ["avatar_stop"] = "让分身停下",
     };
 

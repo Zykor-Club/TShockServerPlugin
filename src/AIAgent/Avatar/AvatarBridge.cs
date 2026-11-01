@@ -20,7 +20,10 @@ public sealed record AvatarSnapshot(
     bool Holding,
     bool Stuck,
     int StuckSeconds,
-    bool Attacking);
+    bool Attacking,
+    string Goal,
+    int GoalIndex,
+    int GoalCount);
 
 /// <summary>
 /// 通过反射调用假人插件的 FakeApi，避免 AIAgent 硬依赖 AIAgentAvatar.dll。
@@ -55,13 +58,20 @@ public static class AvatarBridge
             Convert.ToBoolean(P("Holding") ?? false),
             Convert.ToBoolean(P("Stuck") ?? false),
             Convert.ToInt32(P("StuckSeconds") ?? 0),
-            Convert.ToBoolean(P("Attacking") ?? false));
+            Convert.ToBoolean(P("Attacking") ?? false),
+            P("Goal")?.ToString() ?? "none",
+            Convert.ToInt32(P("GoalIndex") ?? 0),
+            Convert.ToInt32(P("GoalCount") ?? 0));
     }
 
     public static bool Say(string text) => Call("Say", text) is true;
     public static bool Follow(object target) => Call("Follow", target) is true;
     public static bool Goto(float x, float y) => Call("Goto", x, y) is true;
     public static bool Attack(int npcSlot) => Call("Attack", npcSlot) is true;
+    public static bool Guard(float x, float y, float radius) => Call("Guard", x, y, radius) is true;
+    public static bool Patrol(float[] points) => Call("Patrol", points) is true;
+    public static bool Return() => Call("Return") is true;
+    public static bool ClearGoal() => Call("ClearGoal") is true;
     public static bool Stop() => Call("Stop") is true;
     public static bool Despawn() => Call("Despawn") is true;
     public static bool SetSpeaking(bool enabled) => Call("SetSpeaking", enabled) is true;

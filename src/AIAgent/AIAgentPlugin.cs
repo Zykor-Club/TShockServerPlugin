@@ -74,6 +74,9 @@ public sealed class AIAgentPlugin : TerrariaPlugin
         registry.Register(new AvatarGotoTool());
         registry.Register(new AvatarAttackTool());
         registry.Register(new AvatarScanTool());
+        registry.Register(new AvatarGuardTool());
+        registry.Register(new AvatarPatrolTool());
+        registry.Register(new AvatarReturnTool());
         registry.Register(new AvatarStopTool());
         PluginState.Tools = new ToolInvoker(registry);
 

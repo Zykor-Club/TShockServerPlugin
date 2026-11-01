@@ -21,7 +21,10 @@ public sealed record AvatarStatus(
     bool Holding,
     bool Stuck,
     int StuckSeconds,
-    bool Attacking);
+    bool Attacking,
+    string Goal,
+    int GoalIndex,
+    int GoalCount);
 
 /// <summary>
 /// 给外部插件（AIAgent）用的门面：只管理一个"分身"。
@@ -50,7 +53,10 @@ public static class FakeApi
             dp.HoldPos,
             dp.Stuck,
             dp.StuckSeconds,
-            dp.Attacking);
+            dp.Attacking,
+            dp.Goal,
+            dp.PatrolIndex,
+            dp.PatrolPoints.Count);
     }
 
     public static AvatarStatus? Spawn(string? name = null)
@@ -123,6 +129,69 @@ public static class FakeApi
         dp.HoldPos = false;
         dp.TargetNpc = npcSlot;
         ResetStuck(dp);
+        return true;
+    }
+
+    public static bool Guard(float x, float y, float radius)
+    {
+        var dp = Current();
+        if (dp is null) return false;
+
+        dp.Follow = null;
+        dp.TargetNpc = -1;
+        dp.HoldPos = false;
+        dp.Goal = "guard";
+        dp.GoalCenter = new Vector2(x, y);
+        dp.GoalRadius = Math.Max(3 * 16f, radius);
+        dp.RoamPos = dp.GoalCenter;
+        ResetStuck(dp);
+        return true;
+    }
+
+    public static bool Patrol(float[] points)
+    {
+        var dp = Current();
+        if (dp is null) return false;
+        if (points is null || points.Length < 4 || points.Length % 2 != 0) return false;
+
+        dp.Follow = null;
+        dp.TargetNpc = -1;
+        dp.HoldPos = false;
+        dp.Goal = "patrol";
+        dp.PatrolPoints = new List<Vector2>();
+        for (var i = 0; i + 1 < points.Length; i += 2)
+        {
+            dp.PatrolPoints.Add(new Vector2(points[i], points[i + 1]));
+        }
+        dp.PatrolIndex = 0;
+        dp.RoamPos = dp.PatrolPoints[0];
+        ResetStuck(dp);
+        return true;
+    }
+
+    public static bool Return()
+    {
+        var dp = Current();
+        if (dp is null) return false;
+
+        dp.Follow = null;
+        dp.TargetNpc = -1;
+        dp.HoldPos = false;
+        dp.Goal = "return";
+        dp.GoalCenter = new Vector2(Main.spawnTileX * 16f, Main.spawnTileY * 16f);
+        dp.RoamPos = dp.GoalCenter;
+        ResetStuck(dp);
+        return true;
+    }
+
+    public static bool ClearGoal()
+    {
+        var dp = Current();
+        if (dp is null) return false;
+
+        dp.Goal = "none";
+        dp.PatrolPoints.Clear();
+        dp.PatrolIndex = 0;
         return true;
     }
 

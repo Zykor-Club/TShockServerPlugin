@@ -101,6 +101,8 @@ public static class ChatService
             var emotionHint = EmotionDetector.Hint(EmotionDetector.Detect(isEvent ? string.Empty : input));
             var careHint = isEvent ? string.Empty : CareService.LateNightHint(key, DateTime.Now, cfg.Care);
             var taskHint = BuildTaskHint(input);
+            var avatarIntent = Avatar.AvatarBridge.Available && LooksLikeAvatarAction(input);
+            var nudged = false;
             var avatarHint = BuildAvatarHint();
             var system = PromptBuilder.BuildSystem(
                 cfg, playerName, subject?.GroupName, DateTime.Now,
@@ -179,6 +181,18 @@ public static class ChatService
                     continue;
                 }
 
+                // 明确要求分身做事却没调工具：打回一次，必须真的执行
+                if (useTools && avatarIntent && !nudged)
+                {
+                    nudged = true;
+                    messages.Add(new ChatMessage { Role = "assistant", Content = result.Text ?? string.Empty });
+                    messages.Add(ChatMessage.System(
+                        "系统校验：玩家这条消息是在要求分身做具体动作，但你刚才没有调用任何工具。" +
+                        "请立刻调用合适的 avatar_* 工具（avatar_follow / avatar_stop / avatar_guard / avatar_patrol / " +
+                        "avatar_return / avatar_say / avatar_attack / avatar_goto），不要只用文字回答。"));
+                    continue;
+                }
+
                 finalText = result.Text ?? string.Empty;
                 if (useTools) emitter.Push(finalText);
                 emitter.Flush();
@@ -250,6 +264,15 @@ public static class ChatService
             PluginState.Limiter.End(rateKey);
         }
     }
+
+    private static readonly string[] AvatarActionWords =
+    {
+        "分身", "跟着", "别跟", "不要跟", "停下", "站住", "原地", "巡逻", "守着", "守住", "守点", "回城", "回去",
+        "去打", "去左边", "去右边", "去上面", "去下面", "过去", "说一句", "说句话", "帮我看", "让它",
+    };
+
+    private static bool LooksLikeAvatarAction(string input) =>
+        AvatarActionWords.Any(word => input.Contains(word, StringComparison.Ordinal));
 
     /// <summary>给提示词用的分身状态，模型不用先调 avatar_status 就能判断。</summary>
     private static string BuildAvatarHint()

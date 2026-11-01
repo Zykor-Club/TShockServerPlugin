@@ -133,6 +133,75 @@ internal static class DummyWork
             dp.TargetNpc = -1;
         }
 
+        // 3) 目标层：守点 / 巡逻 / 回城
+        if (dp.Goal == "guard")
+        {
+            var toCenter = p.Center.Distance(dp.GoalCenter);
+            if (toCenter > dp.GoalRadius + 5 * 16f)
+            {
+                npc = null;
+                tarPos = dp.GoalCenter;
+                return;
+            }
+
+            var guardTarget = AutoAttack.FindTar(p, dp.GoalRadius);
+            if (guardTarget is not null && guardTarget.active)
+            {
+                npc = guardTarget;
+                tarPos = guardTarget.boss ? BoxEdge(guardTarget, p.Center, Config.StopDist) : guardTarget.Center;
+                return;
+            }
+
+            npc = null;
+            tarPos = dp.GoalCenter;
+            return;
+        }
+
+        if (dp.Goal == "patrol")
+        {
+            if (dp.PatrolPoints.Count == 0)
+            {
+                dp.Goal = "none";
+            }
+            else
+            {
+                if (dp.PatrolIndex >= dp.PatrolPoints.Count) dp.PatrolIndex = 0;
+                var point = dp.PatrolPoints[dp.PatrolIndex];
+
+                if (p.Center.Distance(point) < 2 * 16f)
+                {
+                    dp.PatrolIndex = (dp.PatrolIndex + 1) % dp.PatrolPoints.Count;
+                    point = dp.PatrolPoints[dp.PatrolIndex];
+                }
+
+                var patrolTarget = AutoAttack.FindTar(p, 12 * 16f);
+                if (patrolTarget is not null && patrolTarget.active)
+                {
+                    npc = patrolTarget;
+                    tarPos = patrolTarget.Center;
+                    return;
+                }
+
+                npc = null;
+                tarPos = point;
+                return;
+            }
+        }
+
+        if (dp.Goal == "return")
+        {
+            if (p.Center.Distance(dp.GoalCenter) < 3 * 16f)
+            {
+                dp.Goal = "none";
+                dp.HoldPos = true;
+                dp.RoamPos = dp.GoalCenter;
+            }
+
+            npc = null;
+            tarPos = dp.GoalCenter;
+            return;
+        }
+
         // 2) 定点模式：不随机漫游，站在 RoamPos
         if (dp.HoldPos && dp.RoamPos != Vector2.Zero)
         {

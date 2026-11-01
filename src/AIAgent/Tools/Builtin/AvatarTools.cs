@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Terraria;
@@ -51,6 +52,9 @@ internal static class AvatarToolHelper
             stuck = s.Stuck,
             stuckSeconds = s.StuckSeconds,
             attacking = s.Attacking,
+            goal = s.Goal,
+            goalIndex = s.GoalIndex,
+            goalCount = s.GoalCount,
         };
     }
 }
@@ -358,4 +362,121 @@ public sealed class AvatarScanTool : ITool
         TileID.LunarOre => "夜明矿",
         _ => TileID.Search.GetName(type),
     };
+}
+
+public sealed class AvatarGuardTool : ITool
+{
+    public string Name => "avatar_guard";
+    public string Description => "让分身驻守一片区域：站在中心点，附近的怪会去打，追远了会回来。不填坐标就守当前位置。";
+    public string Permission => AvatarToolHelper.Permission;
+    public bool RequiresRealPlayer => false;
+
+    public JsonObject BuildParameters() => new()
+    {
+        ["type"] = "object",
+        ["properties"] = new JsonObject
+        {
+            ["x"] = new JsonObject { ["type"] = "integer", ["description"] = "守点中心 X（格），省略则用分身处" },
+            ["y"] = new JsonObject { ["type"] = "integer", ["description"] = "守点中心 Y（格）" },
+            ["radius"] = new JsonObject { ["type"] = "integer", ["description"] = "守点半径（格），默认 15", ["minimum"] = 3, ["maximum"] = 60 },
+        },
+        ["additionalProperties"] = false,
+    };
+
+    public ToolValidation Validate(JsonElement args, TSPlayer caller) => new(true, null);
+
+    public ToolResult Execute(JsonElement args, TSPlayer caller)
+    {
+        if (!AvatarToolHelper.Ready(out var error))
+            return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = error }));
+
+        var s = AvatarBridge.Status()!;
+        var x = ToolArgs.Int(args, "x") ?? (int)(s.X / 16f);
+        var y = ToolArgs.Int(args, "y") ?? (int)(s.Y / 16f);
+        var radius = Math.Clamp(ToolArgs.Int(args, "radius") ?? 15, 3, 60);
+
+        var ok = AvatarBridge.Guard(x * 16f, y * 16f, radius * 16f);
+        return new ToolResult(true, ToolArgs.Ok(new { ok, center = new { x, y }, radius, avatar = AvatarToolHelper.Snapshot() }));
+    }
+}
+
+public sealed class AvatarPatrolTool : ITool
+{
+    public string Name => "avatar_patrol";
+    public string Description => "让分身在几个点之间循环巡逻（2~6 个点，单位格）。路上遇到怪会先打，打完继续巡逻。";
+    public string Permission => AvatarToolHelper.Permission;
+    public bool RequiresRealPlayer => false;
+
+    public JsonObject BuildParameters() => new()
+    {
+        ["type"] = "object",
+        ["properties"] = new JsonObject
+        {
+            ["points"] = new JsonObject
+            {
+                ["type"] = "array",
+                ["description"] = "巡逻点列表，2~6 个",
+                ["minItems"] = 2,
+                ["maxItems"] = 6,
+                ["items"] = new JsonObject
+                {
+                    ["type"] = "object",
+                    ["properties"] = new JsonObject
+                    {
+                        ["x"] = new JsonObject { ["type"] = "integer" },
+                        ["y"] = new JsonObject { ["type"] = "integer" },
+                    },
+                    ["required"] = new JsonArray("x", "y"),
+                },
+            },
+        },
+        ["required"] = new JsonArray("points"),
+        ["additionalProperties"] = false,
+    };
+
+    public ToolValidation Validate(JsonElement args, TSPlayer caller)
+    {
+        if (!args.TryGetProperty("points", out var points) || points.ValueKind != JsonValueKind.Array)
+            return new ToolValidation(false, "缺少 points 数组");
+        if (points.GetArrayLength() < 2 || points.GetArrayLength() > 6)
+            return new ToolValidation(false, "巡逻点需要 2~6 个");
+        return new ToolValidation(true, null);
+    }
+
+    public ToolResult Execute(JsonElement args, TSPlayer caller)
+    {
+        if (!AvatarToolHelper.Ready(out var error))
+            return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = error }));
+
+        var flat = new List<float>();
+        foreach (var point in args.GetProperty("points").EnumerateArray())
+        {
+            var x = point.TryGetProperty("x", out var px) ? px.GetInt32() : 0;
+            var y = point.TryGetProperty("y", out var py) ? py.GetInt32() : 0;
+            flat.Add(x * 16f);
+            flat.Add(y * 16f);
+        }
+
+        var ok = AvatarBridge.Patrol(flat.ToArray());
+        return new ToolResult(true, ToolArgs.Ok(new { ok, count = flat.Count / 2, avatar = AvatarToolHelper.Snapshot() }));
+    }
+}
+
+public sealed class AvatarReturnTool : ITool
+{
+    public string Name => "avatar_return";
+    public string Description => "让分身返回世界出生点，到了之后自动驻守。";
+    public string Permission => AvatarToolHelper.Permission;
+    public bool RequiresRealPlayer => false;
+    public JsonObject BuildParameters() => new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false };
+    public ToolValidation Validate(JsonElement args, TSPlayer caller) => new(true, null);
+
+    public ToolResult Execute(JsonElement args, TSPlayer caller)
+    {
+        if (!AvatarToolHelper.Ready(out var error))
+            return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = error }));
+
+        var ok = AvatarBridge.Return();
+        return new ToolResult(true, ToolArgs.Ok(new { ok, avatar = AvatarToolHelper.Snapshot() }));
+    }
 }

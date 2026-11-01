@@ -70,6 +70,21 @@ internal class DummyPlayer
     /// <summary>是否允许说话（默认开）。</summary>
     public bool SpeakEnabled { get; set; } = true;
 
+    /// <summary>当前目标：none / guard / patrol / return。</summary>
+    public string Goal { get; set; } = "none";
+
+    /// <summary>守点中心。</summary>
+    public Vector2 GoalCenter { get; set; }
+
+    /// <summary>守点半径（像素）。</summary>
+    public float GoalRadius { get; set; } = 15 * 16f;
+
+    /// <summary>巡逻点。</summary>
+    public List<Vector2> PatrolPoints { get; set; } = new();
+
+    /// <summary>当前巡逻点下标。</summary>
+    public int PatrolIndex { get; set; }
+
     /// <summary>是否被判定为卡住（有目标但长时间没位移）。</summary>
     public bool Attacking => UseTime > 0;
 
