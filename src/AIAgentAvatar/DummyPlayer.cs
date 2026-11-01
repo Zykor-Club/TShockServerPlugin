@@ -71,6 +71,8 @@ internal class DummyPlayer
     public bool SpeakEnabled { get; set; } = true;
 
     /// <summary>是否被判定为卡住（有目标但长时间没位移）。</summary>
+    public bool Attacking => UseTime > 0;
+
     public bool Stuck { get; set; }
 
     /// <summary>连续没位移的秒数。</summary>

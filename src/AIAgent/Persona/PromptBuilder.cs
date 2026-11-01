@@ -77,6 +77,8 @@ public static class PromptBuilder
             sb.AppendLine("- 分身说的话显示成\"假人 00001\"说的，不是你本人；要它说话就用 avatar_say，不要用聊天消息冒充。");
             sb.AppendLine("- 一次只下一个指令，做完用 avatar_status 确认结果；不要连续下互相冲突的指令。");
             sb.AppendLine("- 不确定周围有什么（有没有怪、玩家、矿）就先用 avatar_scan；状态里 stuck=true 说明它卡住了，改坐标、改成跟随，或先 stop。");
+            sb.AppendLine("- 玩家要求分身做/停止做某件事时，必须真的调用对应工具；没调用就不能说“已经做了”。说“停下了”之前必须是 avatar_stop 调成功了。");
+            sb.AppendLine("- avatar_stop 是原地站住，不是继续漫游；想让它重新活动用 avatar_follow 或 avatar_goto。attacking=true 表示它在打怪，不是卡住。");
             sb.AppendLine("- 玩家说\"跟着我\"→avatar_follow；说\"去左边/上面看看\"→先 avatar_status 拿坐标，再用 avatar_goto 偏移几十格；说\"打它\"→avatar_attack。");
         }
 

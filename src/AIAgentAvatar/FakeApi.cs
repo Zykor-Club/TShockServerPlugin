@@ -20,7 +20,8 @@ public sealed record AvatarStatus(
     string? Follow,
     bool Holding,
     bool Stuck,
-    int StuckSeconds);
+    int StuckSeconds,
+    bool Attacking);
 
 /// <summary>
 /// 给外部插件（AIAgent）用的门面：只管理一个"分身"。
@@ -48,7 +49,8 @@ public static class FakeApi
             dp.Follow?.Name,
             dp.HoldPos,
             dp.Stuck,
-            dp.StuckSeconds);
+            dp.StuckSeconds,
+            dp.Attacking);
     }
 
     public static AvatarStatus? Spawn(string? name = null)
@@ -129,10 +131,14 @@ public static class FakeApi
         var dp = Current();
         if (dp is null) return false;
 
+        // 停止 = 原地站住，而不是继续漫游
+        var pos = dp.TSPlayer?.TPlayer?.position ?? Vector2.Zero;
         dp.Follow = null;
-        dp.HoldPos = false;
         dp.TargetNpc = -1;
-        dp.RoamPos = Vector2.Zero;
+        dp.HoldPos = true;
+        dp.RoamPos = pos;
+        dp.NextRoamTime = System.DateTime.UtcNow.AddMinutes(10);
+        ResetStuck(dp);
         return true;
     }
 

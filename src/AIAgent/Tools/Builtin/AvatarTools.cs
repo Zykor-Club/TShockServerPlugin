@@ -50,6 +50,7 @@ internal static class AvatarToolHelper
             holding = s.Holding,
             stuck = s.Stuck,
             stuckSeconds = s.StuckSeconds,
+            attacking = s.Attacking,
         };
     }
 }
@@ -209,7 +210,7 @@ public sealed class AvatarAttackTool : ITool
 public sealed class AvatarStopTool : ITool
 {
     public string Name => "avatar_stop";
-    public string Description => "让分身停下：取消跟随、指定目标和定点，回到自由漫游。";
+    public string Description => "让分身原地站住：取消跟随、指定攻击目标和定点，停在当前位置不再乱走。";
     public string Permission => AvatarToolHelper.Permission;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false };
@@ -250,7 +251,7 @@ public sealed class AvatarScanTool : ITool
             return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = error }));
 
         var s = AvatarBridge.Status()!;
-        var radius = Math.Clamp(ToolArgs.Int(args, "radius") ?? 30, 10, 60);
+        var radius = Math.Clamp(ToolArgs.Int(args, "radius") ?? 40, 10, 60);
         var cx = (int)(s.X / 16f);
         var cy = (int)(s.Y / 16f);
 
@@ -325,6 +326,7 @@ public sealed class AvatarScanTool : ITool
             life = s.Life,
             lifeMax = s.LifeMax,
             stuck = s.Stuck,
+            attacking = s.Attacking,
             radius,
             monsters,
             players,

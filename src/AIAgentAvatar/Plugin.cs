@@ -308,7 +308,22 @@ public class Plugin(Main game) : TerrariaPlugin(game)
                 var moved = plr.position.Distance(dp.StuckCheckPos);
                 dp.StuckCheckPos = plr.position;
 
-                if (!hasGoal || moved > 8f)
+                // 正在打怪/附近有怪/已贴到跟随目标，都不算卡住
+                var inCombat = dp.Attacking || dp.TargetNpc >= 0;
+                if (!inCombat)
+                {
+                    for (var n = 0; n < Main.maxNPCs; n++)
+                    {
+                        var npc = Main.npc[n];
+                        if (npc is not { active: true, friendly: false, townNPC: false } || npc.life <= 0) continue;
+                        if (npc.Distance(plr.Center) < 50 * 16f) { inCombat = true; break; }
+                    }
+                }
+
+                var nearFollow = dp.Follow?.TPlayer is not null &&
+                                 dp.Follow.TPlayer.position.Distance(plr.position) < 4 * 16f;
+
+                if (!hasGoal || moved > 8f || inCombat || nearFollow)
                 {
                     dp.StuckSeconds = 0;
                     dp.Stuck = false;
