@@ -1,4 +1,4 @@
-﻿extern alias TrAlias;
+extern alias TrAlias;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -230,11 +230,68 @@ public class Plugin(Main game) : TerrariaPlugin(game)
 
     #region 游戏更新(行为触发器)
     public static long Tick = 0;
+
+    /// <summary>希望存在的分身名字；为空表示不自动重连。</summary>
+    internal static string? DesiredAvatar;
+
+    /// <summary>下次允许重连的 Tick。</summary>
+    internal static long NextReconnectTick;
+
+    /// <summary>当前重连退避（帧），成功或手动创建后重置。</summary>
+    internal static int ReconnectBackoff = 600;
+
+    /// <summary>正在连接中的保护时间：防止同一帧重复创建。</summary>
+    internal static long ConnectingUntil;
     internal static readonly List<Point> BadSpots = new();
     internal static readonly DummyPlayer?[] Fakes = new DummyPlayer[Main.maxPlayers];
     private void OnGameUpdate(EventArgs args)
     {
         Tick++;
+
+        // 服务器起来 10 秒后自动创建一个分身（只创建一次）
+        if (Config.AutoSpawn && Tick == 600 && FakeApi.Get() is null && !Fakes.Any(f => f is not null))
+        {
+            FakeApi.Spawn();
+        }
+
+        // 清理已经断开的残留槽位，否则重连会被"半死"的记录挡住
+        for (var i = 0; i < Fakes.Length; i++)
+        {
+            var dead = Fakes[i];
+            if (dead is null || dead.Active) continue;
+            dead.Close();
+            Fakes[i] = null;
+        }
+
+        // 分身真正上线后，解除连接保护
+        if (FakeApi.Get() is not null)
+        {
+            ConnectingUntil = 0;
+        }
+
+        // 掉线自动重连（只重连"曾经创建过/想要"的那个分身）
+        if (Config.AutoReconnect &&
+            DesiredAvatar is not null &&
+            Tick >= NextReconnectTick &&
+            Tick >= ConnectingUntil &&
+            FakeApi.Get() is null &&
+            !Fakes.Any(f => f is not null))
+        {
+            ConnectingUntil = Tick + 600;
+            var dp = MyCmd.CreateAvatar(DesiredAvatar);
+            if (dp is null)
+            {
+                NextReconnectTick = Tick + ReconnectBackoff;
+                ReconnectBackoff = Math.Min(ReconnectBackoff * 2, 3600);
+                TShock.Log.ConsoleError($"[{PluginName}] 分身重连失败，{ReconnectBackoff / 60} 秒后重试");
+            }
+            else
+            {
+                TShock.Log.ConsoleInfo($"[{PluginName}] 分身已重新连接：{DesiredAvatar}");
+                NextReconnectTick = 0;
+                ReconnectBackoff = 600;
+            }
+        }
 
         // 每10秒清理弹幕记录
         if (Tick % 600 == 0)

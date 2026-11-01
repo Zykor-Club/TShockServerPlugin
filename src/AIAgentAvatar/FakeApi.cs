@@ -60,6 +60,7 @@ public static class FakeApi
         var dp = Current();
         if (dp is null) return false;
 
+        DesiredAvatar = null;
         dp.Close();
         for (var i = 0; i < Fakes.Length; i++)
         {

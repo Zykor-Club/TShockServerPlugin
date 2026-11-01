@@ -241,6 +241,7 @@ internal static class DummyWork
         Vector2 myPos = plr.position;
         ctrl.FaceDirection = tarPos.X > myPos.X;
         float dif = tarPos.Y - myPos.Y;
+        float speed = Config.MoveSpeed * 16f / 60f;
         float hopeX = (ctrl.FaceDirection ? 1f : -1f) * speed;
 
         // 水平移动

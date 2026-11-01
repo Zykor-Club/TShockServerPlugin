@@ -80,6 +80,9 @@ internal class Configuration
     [JsonProperty("分身名称", Order = 63)]
     public string AvatarName { get; set; } = "香草";
 
+    [JsonProperty("断线重连", Order = 64)]
+    public bool AutoReconnect { get; set; } = true;
+
     [JsonProperty("禁止靠近NPC", Order = 59)]
     public List<int> BlockNpc { get; set; } = new();     // 黑名单NPC ID
     #endregion

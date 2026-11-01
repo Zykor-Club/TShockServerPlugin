@@ -204,6 +204,8 @@ internal class MyCmd
     #region 移除假人
     private static void Remove(CommandArgs args)
     {
+        DesiredAvatar = null;
+
         if (args.Parameters.Count < 2)
         {
             SendMess(args.Player, $"用法: /{cmd} del 索引\n" +
@@ -439,6 +441,11 @@ internal class MyCmd
         {
             SpeakEnabled = Config.Speak,
         };
+
+        DesiredAvatar = f.Name;
+        ReconnectBackoff = 600;
+        NextReconnectTick = 0;
+        ConnectingUntil = Tick + 600;
 
         try
         {
