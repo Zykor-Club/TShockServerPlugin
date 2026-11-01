@@ -77,6 +77,7 @@ public sealed class AIAgentPlugin : TerrariaPlugin
         registry.Register(new AvatarGuardTool());
         registry.Register(new AvatarPatrolTool());
         registry.Register(new AvatarReturnTool());
+        registry.Register(new AvatarPvpTool());
         registry.Register(new AvatarStopTool());
         PluginState.Tools = new ToolInvoker(registry);
 
@@ -87,6 +88,7 @@ public sealed class AIAgentPlugin : TerrariaPlugin
             DoLog = false,
         });
 
+        GetDataHandlers.PlayerDamage += OnPlayerDamage;
         GeneralHooks.ReloadEvent += OnReload;
         ServerApi.Hooks.ServerJoin.Register(this, OnJoin);
         ServerApi.Hooks.ServerLeave.Register(this, OnLeave);
@@ -114,6 +116,7 @@ public sealed class AIAgentPlugin : TerrariaPlugin
             _idleCts?.Dispose();
             _idleCts = null;
 
+            GetDataHandlers.PlayerDamage -= OnPlayerDamage;
             GeneralHooks.ReloadEvent -= OnReload;
             ServerApi.Hooks.ServerJoin.Deregister(this, OnJoin);
             ServerApi.Hooks.ServerLeave.Deregister(this, OnLeave);
@@ -203,6 +206,21 @@ public sealed class AIAgentPlugin : TerrariaPlugin
         PluginState.Wiki = LoadWiki();
         PluginLog.Info($"配置已重新加载 | 模型 {PluginState.Config.Model}");
         args.Player?.SendSuccessMessage("[AIAgent] 配置已重新加载");
+    }
+
+    private static void OnPlayerDamage(object? sender, GetDataHandlers.PlayerDamageEventArgs args)
+    {
+        var status = Avatar.AvatarBridge.Status();
+        if (status is null || args.Player is null) return;
+        if (!string.Equals(args.Player.Name, status.Name, StringComparison.Ordinal)) return;
+
+        var source = Avatar.AvatarDamage.ResolveSource(args.PlayerDeathReason);
+        Avatar.AvatarDamage.Record(args.Damage, source, args.PVP);
+
+        if (PluginState.Config.DebugLog)
+        {
+            PluginLog.Info($"分身受伤: {args.Damage} 来自 {source} pvp={args.PVP}");
+        }
     }
 
     private static Wiki.IWikiSource LoadWiki()

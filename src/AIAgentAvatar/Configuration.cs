@@ -80,6 +80,9 @@ internal class Configuration
     [JsonProperty("分身名称", Order = 63)]
     public string AvatarName { get; set; } = "香草";
 
+    [JsonProperty("PVP模式", Order = 65)]
+    public bool Pvp { get; set; } = false;
+
     [JsonProperty("断线重连", Order = 64)]
     public bool AutoReconnect { get; set; } = true;
 

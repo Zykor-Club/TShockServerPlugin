@@ -67,6 +67,16 @@ internal class DummyPlayer
     /// <summary>指定攻击目标（NPC 槽位），-1 表示自动。</summary>
     public int TargetNpc { get; set; } = -1;
 
+    /// <summary>是否开启 PvP。</summary>
+    public bool PvpEnabled { get; private set; }
+
+    /// <summary>切换 PvP 并通知服务器。</summary>
+    public void SetPvp(bool enabled)
+    {
+        PvpEnabled = enabled;
+        SendPacket(new PlayerPvP { Pvp = enabled });
+    }
+
     /// <summary>是否允许说话（默认开）。</summary>
     public bool SpeakEnabled { get; set; } = true;
 
@@ -279,6 +289,11 @@ internal class DummyPlayer
         {
             SendPacket(new RequestWorldInfo());
             DummyWork.SetNoPick(this);
+
+            if (Config.Pvp)
+            {
+                SetPvp(true);
+            }
         });
 
         // 忽略拾取相关的入站包

@@ -83,6 +83,7 @@ public static class AigCommandRouter
         ["avatar_guard"] = "让分身守点",
         ["avatar_patrol"] = "让分身巡逻",
         ["avatar_return"] = "让分身回城",
+        ["avatar_pvp"] = "开关分身 PvP",
         ["avatar_stop"] = "让分身停下",
     };
 

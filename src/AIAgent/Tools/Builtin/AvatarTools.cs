@@ -55,6 +55,8 @@ internal static class AvatarToolHelper
             goal = s.Goal,
             goalIndex = s.GoalIndex,
             goalCount = s.GoalCount,
+            pvp = s.Pvp,
+            recentDamage = AvatarDamage.Snapshot(),
         };
     }
 }
@@ -478,5 +480,45 @@ public sealed class AvatarReturnTool : ITool
 
         var ok = AvatarBridge.Return();
         return new ToolResult(true, ToolArgs.Ok(new { ok, avatar = AvatarToolHelper.Snapshot() }));
+    }
+}
+
+public sealed class AvatarPvpTool : ITool
+{
+    public string Name => "avatar_pvp";
+    public string Description => "开关分身的 PvP 状态。打开后其他玩家可以攻击它（它不会主动打玩家）；关闭则回到和平状态。";
+    public string Permission => AvatarToolHelper.Permission;
+    public bool RequiresRealPlayer => false;
+
+    public JsonObject BuildParameters() => new()
+    {
+        ["type"] = "object",
+        ["properties"] = new JsonObject
+        {
+            ["enabled"] = new JsonObject { ["type"] = "boolean", ["description"] = "true 开启 PvP，false 关闭" },
+        },
+        ["required"] = new JsonArray("enabled"),
+        ["additionalProperties"] = false,
+    };
+
+    public ToolValidation Validate(JsonElement args, TSPlayer caller)
+    {
+        if (!args.TryGetProperty("enabled", out var enabled) ||
+            (enabled.ValueKind != JsonValueKind.True && enabled.ValueKind != JsonValueKind.False))
+        {
+            return new ToolValidation(false, "缺少 enabled（true/false）");
+        }
+
+        return new ToolValidation(true, null);
+    }
+
+    public ToolResult Execute(JsonElement args, TSPlayer caller)
+    {
+        if (!AvatarToolHelper.Ready(out var error))
+            return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = error }));
+
+        var enabled = args.GetProperty("enabled").GetBoolean();
+        var ok = AvatarBridge.SetPvp(enabled);
+        return new ToolResult(true, ToolArgs.Ok(new { ok, enabled, avatar = AvatarToolHelper.Snapshot() }));
     }
 }

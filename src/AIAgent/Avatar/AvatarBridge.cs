@@ -23,7 +23,8 @@ public sealed record AvatarSnapshot(
     bool Attacking,
     string Goal,
     int GoalIndex,
-    int GoalCount);
+    int GoalCount,
+    bool Pvp);
 
 /// <summary>
 /// 通过反射调用假人插件的 FakeApi，避免 AIAgent 硬依赖 AIAgentAvatar.dll。
@@ -61,7 +62,8 @@ public static class AvatarBridge
             Convert.ToBoolean(P("Attacking") ?? false),
             P("Goal")?.ToString() ?? "none",
             Convert.ToInt32(P("GoalIndex") ?? 0),
-            Convert.ToInt32(P("GoalCount") ?? 0));
+            Convert.ToInt32(P("GoalCount") ?? 0),
+            Convert.ToBoolean(P("Pvp") ?? false));
     }
 
     public static bool Say(string text) => Call("Say", text) is true;
@@ -72,6 +74,7 @@ public static class AvatarBridge
     public static bool Patrol(float[] points) => Call("Patrol", points) is true;
     public static bool Return() => Call("Return") is true;
     public static bool ClearGoal() => Call("ClearGoal") is true;
+    public static bool SetPvp(bool enabled) => Call("SetPvp", enabled) is true;
     public static bool Stop() => Call("Stop") is true;
     public static bool Despawn() => Call("Despawn") is true;
     public static bool SetSpeaking(bool enabled) => Call("SetSpeaking", enabled) is true;

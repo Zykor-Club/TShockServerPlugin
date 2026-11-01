@@ -24,7 +24,8 @@ public sealed record AvatarStatus(
     bool Attacking,
     string Goal,
     int GoalIndex,
-    int GoalCount);
+    int GoalCount,
+    bool Pvp);
 
 /// <summary>
 /// 给外部插件（AIAgent）用的门面：只管理一个"分身"。
@@ -56,7 +57,8 @@ public static class FakeApi
             dp.Attacking,
             dp.Goal,
             dp.PatrolIndex,
-            dp.PatrolPoints.Count);
+            dp.PatrolPoints.Count,
+            dp.PvpEnabled);
     }
 
     public static AvatarStatus? Spawn(string? name = null)
@@ -220,6 +222,15 @@ public static class FakeApi
         dp.RoamPos = pos;
         dp.NextRoamTime = System.DateTime.UtcNow.AddMinutes(10);
         ResetStuck(dp);
+        return true;
+    }
+
+    public static bool SetPvp(bool enabled)
+    {
+        var dp = Current();
+        if (dp is null) return false;
+
+        dp.SetPvp(enabled);
         return true;
     }
 

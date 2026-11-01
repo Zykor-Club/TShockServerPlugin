@@ -79,6 +79,7 @@ public static class PromptBuilder
             sb.AppendLine("- 不确定周围有什么（有没有怪、玩家、矿）就先用 avatar_scan；状态里 stuck=true 说明它卡住了，改坐标、改成跟随，或先 stop。");
             sb.AppendLine("- 玩家要求分身做/停止做某件事时，必须真的调用对应工具；没调用就不能说“已经做了”。说“停下了”之前必须是 avatar_stop 调成功了。");
             sb.AppendLine("- avatar_stop 是原地站住，不是继续漫游；想让它重新活动用 avatar_follow 或 avatar_goto。attacking=true 表示它在打怪，不是卡住。");
+            sb.AppendLine("- avatar_pvp 控制分身是否可被玩家攻击；打开后它不会主动打玩家。avatar_status 里的 recentDamage 是最近一次受伤记录（来源和 PvP 标记）。");
             sb.AppendLine("- 目标类指令：守一片区域用 avatar_guard（可只给半径，默认守当前位置），巡逻用 avatar_patrol（2~6 个点），回城用 avatar_return。目标是持续执行的，不要反复下。");
             sb.AppendLine("- 玩家说\"跟着我\"→avatar_follow；说\"去左边/上面看看\"→先 avatar_status 拿坐标，再用 avatar_goto 偏移几十格；说\"打它\"→avatar_attack。");
         }
