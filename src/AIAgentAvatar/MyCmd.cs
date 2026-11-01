@@ -134,6 +134,12 @@ internal class MyCmd
         // 指定索引重连
         if (args.Parameters.Count == 2 && int.TryParse(args.Parameters[1], out var index))
         {
+            if (index < 0 || index >= Fakes.Length)
+            {
+                SendMess(plr, "假人索引无效");
+                return;
+            }
+
             var fake = Fakes[index];
             if (fake == null || fake.Active)
             {
@@ -275,7 +281,20 @@ internal class MyCmd
             {
                 var d = Fakes[i];
                 if (d == null || !d.Active || !d.IsPlaying) continue;
-                d.Follow = d.Follow == plr ? null : plr;
+
+                if (d.Follow == plr)
+                {
+                    d.Follow = null;
+                }
+                else
+                {
+                    d.Goal = "none";
+                    d.PatrolPoints.Clear();
+                    d.PatrolIndex = 0;
+                    d.HoldPos = false;
+                    d.TargetNpc = -1;
+                    d.Follow = plr;
+                }
                 names.Add(d.TSPlayer.Name);
             }
 
@@ -298,7 +317,19 @@ internal class MyCmd
             return;
         }
 
-        dummy.Follow = dummy.Follow == plr ? null : plr;
+        if (dummy.Follow == plr)
+        {
+            dummy.Follow = null;
+        }
+        else
+        {
+            dummy.Goal = "none";
+            dummy.PatrolPoints.Clear();
+            dummy.PatrolIndex = 0;
+            dummy.HoldPos = false;
+            dummy.TargetNpc = -1;
+            dummy.Follow = plr;
+        }
         SendMess(plr, $"假人 {dummy.TSPlayer.Name} 现在{(dummy.Follow == plr ? "跟随你" : "停止跟随")}");
     }
     #endregion
@@ -759,7 +790,18 @@ internal class MyCmd
         for (int slot = 0; slot < maxSlot; slot++)
         {
             var itm = items[slot];
-            Item item = ContentSamples.ItemsByType[itm.NetId];
+            if (!ContentSamples.ItemsByType.TryGetValue(itm.NetId, out var item) || item is null)
+            {
+                dp.SendPacket(new SyncEquipment
+                {
+                    PlayerSlot = dp.PlayerSlot,
+                    ItemSlot = (byte)slot,
+                    Stack = 0,
+                    Prefix = 0,
+                    ItemType = 0,
+                });
+                continue;
+            }
 
             // 禁止空物品 与 召唤仆从武器
             if (itm.NetId <= 0 || item.sentry ||

@@ -97,6 +97,11 @@ public class Plugin(Main game) : TerrariaPlugin(game)
     {
         // 没开启自动注册 不处理
         if (!Config.AutoRegister) return;
+        if (string.IsNullOrWhiteSpace(Config.Names) || Config.Names.Length < 2)
+        {
+            TShock.Log.ConsoleError($"[{PluginName}] 名称前缀为空或过短，已跳过自动注册");
+            return;
+        }
 
         var plr = TShock.Players[args.Who];
         if (plr is null) return;
@@ -244,6 +249,9 @@ public class Plugin(Main game) : TerrariaPlugin(game)
     /// <summary>当前重连退避（帧），成功或手动创建后重置。</summary>
     internal static int ReconnectBackoff = 600;
 
+    /// <summary>连续重连失败次数，超过上限就放弃。</summary>
+    internal static int ReconnectFailures;
+
     /// <summary>正在连接中的保护时间：防止同一帧重复创建。</summary>
     internal static long ConnectingUntil;
     internal static readonly List<Point> BadSpots = new();
@@ -285,15 +293,28 @@ public class Plugin(Main game) : TerrariaPlugin(game)
             var dp = MyCmd.CreateAvatar(DesiredAvatar);
             if (dp is null)
             {
+                ReconnectFailures++;
                 NextReconnectTick = Tick + ReconnectBackoff;
                 ReconnectBackoff = Math.Min(ReconnectBackoff * 2, 3600);
-                TShock.Log.ConsoleError($"[{PluginName}] 分身重连失败，{ReconnectBackoff / 60} 秒后重试");
+
+                if (ReconnectFailures >= 10)
+                {
+                    TShock.Log.ConsoleError($"[{PluginName}] 分身连续重连失败 {ReconnectFailures} 次，停止自动重连：{DesiredAvatar}");
+                    DesiredAvatar = null;
+                    ReconnectFailures = 0;
+                    ReconnectBackoff = 600;
+                }
+                else
+                {
+                    TShock.Log.ConsoleError($"[{PluginName}] 分身重连失败，{ReconnectBackoff / 60} 秒后重试");
+                }
             }
             else
             {
                 TShock.Log.ConsoleInfo($"[{PluginName}] 分身已重新连接：{DesiredAvatar}");
                 NextReconnectTick = 0;
                 ReconnectBackoff = 600;
+                ReconnectFailures = 0;
             }
         }
 

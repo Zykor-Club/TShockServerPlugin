@@ -68,12 +68,24 @@ public class TrClient
         bw = new BinaryWriter(client.GetStream());
     }
 
+    private bool _closed;
+
     public void Close()
     {
-        if (client.Connected) client.Close();
+        if (_closed) return;
+        _closed = true;
+
+        try { client?.Close(); } catch { }
+        try { client?.Dispose(); } catch { }
+        br = null;
+        bw = null;
     }
 
     public void KillServer() => client.GetStream().Write([0, 0], 0, 2);
     internal INetPacket Receive() => mgr.Deserialize(br);
-    internal void Send(INetPacket packet) => bw?.Write(mgr.Serialize(packet));
+    internal void Send(INetPacket packet)
+    {
+        if (_closed) return;
+        bw?.Write(mgr.Serialize(packet));
+    }
 }

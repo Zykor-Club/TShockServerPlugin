@@ -168,7 +168,7 @@ internal static class DummyWork
                 if (dp.PatrolIndex >= dp.PatrolPoints.Count) dp.PatrolIndex = 0;
                 var point = dp.PatrolPoints[dp.PatrolIndex];
 
-                if (p.Center.Distance(point) < 2 * 16f)
+                if (p.position.Distance(point) < 2 * 16f)
                 {
                     dp.PatrolIndex = (dp.PatrolIndex + 1) % dp.PatrolPoints.Count;
                     point = dp.PatrolPoints[dp.PatrolIndex];

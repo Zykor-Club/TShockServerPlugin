@@ -125,7 +125,7 @@ internal class DummyPlayer
     public int RoleTier { get; set; } = -1;  // -1 表示未加载任何角色
 
     private readonly string UUID;     // 假人设备ID
-    private readonly string Password;     // 假人密码
+    private string _password = string.Empty; // 当前使用的密码（重连可更新）
     private readonly SyncPlayer PlayerInfo;    // 假人外观
     private readonly Dictionary<Type, Action<object>> handlers = [];
     private readonly TrClient client;
@@ -139,7 +139,7 @@ internal class DummyPlayer
     {
         this.PlayerInfo = playerInfo;
         this.UUID = uuid;
-        this.Password = password;
+        _password = password;
         this.client = new TrClient();
         this.InternalOn(); // 注册包处理器
 
@@ -167,8 +167,6 @@ internal class DummyPlayer
     #region 关闭假人连接并释放资源
     public void Close()
     {
-        AutoAttack.MyProj.RemoveAll(p => p.fake == this);
-
         this.IsPlaying = false;
         this.Active = false;
         this.client?.Close();
@@ -275,7 +273,13 @@ internal class DummyPlayer
         this.On<StatusText>(s => OnChat?.Invoke(this, s.Text, new TrColor()));
         this.On<TextS2C>(t => OnChat?.Invoke(this, t.Text, t.Color));
         this.On<SmartTextMessage>(t => OnChat?.Invoke(this, t.Text, t.Color));
-        this.On<Kick>(k => { OnMessage?.Invoke(this, "Kicked: " + k.Reason); Close(); });
+        this.On<RequestPassword>(_ => this.SendPacket(new SendPassword { Password = _password }));
+        this.On<Kick>(k =>
+        {
+            OnMessage?.Invoke(this, "Kicked: " + k.Reason);
+            DesiredAvatar = null;   // 被踢不自动重连，避免风暴
+            Close();
+        });
 
         this.On<LoadPlayer>(p =>
         {
@@ -291,8 +295,8 @@ internal class DummyPlayer
                 this.TileGetSection(i.SpawnX, i.SpawnY);
                 this.Spawn(i.SpawnX, i.SpawnY);
                 this.IsPlaying = true;
-                if (!string.IsNullOrEmpty(Password))
-                    ChatText($"/login {Password}");
+                if (!string.IsNullOrEmpty(_password))
+                    ChatText($"/login {_password}");
             }
         });
 
@@ -335,7 +339,7 @@ internal class DummyPlayer
     private void GameLoopInternal(string password)
     {
         this.Hello(this.CurRelease);
-        this.On<RequestPassword>(_ => this.SendPacket(new SendPassword { Password = password }));
+        _password = password;
         this.Active = true;
         this.timer = new Timer(this.OnFrame, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1000));
         Task.Run(() =>

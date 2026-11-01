@@ -119,7 +119,7 @@ public static class FakeApi
         dp.Follow = null;
         dp.TargetNpc = -1;
         dp.HoldPos = true;
-        dp.RoamPos = new Vector2(worldX, worldY);
+        dp.RoamPos = ClampWorld(new Vector2(worldX, worldY));
         dp.NextRoamTime = System.DateTime.UtcNow.AddMinutes(10);
         ResetStuck(dp);
         return true;
@@ -153,7 +153,9 @@ public static class FakeApi
         dp.TargetNpc = -1;
         dp.HoldPos = false;
         dp.Goal = "guard";
-        dp.GoalCenter = new Vector2(x, y);
+        dp.PatrolPoints.Clear();
+        dp.PatrolIndex = 0;
+        dp.GoalCenter = ClampWorld(new Vector2(x, y));
         dp.GoalRadius = Math.Max(3 * 16f, radius);
         dp.RoamPos = dp.GoalCenter;
         ResetStuck(dp);
@@ -173,7 +175,7 @@ public static class FakeApi
         dp.PatrolPoints = new List<Vector2>();
         for (var i = 0; i + 1 < points.Length; i += 2)
         {
-            dp.PatrolPoints.Add(new Vector2(points[i], points[i + 1]));
+            dp.PatrolPoints.Add(ClampWorld(new Vector2(points[i], points[i + 1])));
         }
         dp.PatrolIndex = 0;
         dp.RoamPos = dp.PatrolPoints[0];
@@ -190,6 +192,8 @@ public static class FakeApi
         dp.TargetNpc = -1;
         dp.HoldPos = false;
         dp.Goal = "return";
+        dp.PatrolPoints.Clear();
+        dp.PatrolIndex = 0;
         dp.GoalCenter = new Vector2(Main.spawnTileX * 16f, Main.spawnTileY * 16f);
         dp.RoamPos = dp.GoalCenter;
         ResetStuck(dp);
@@ -204,6 +208,8 @@ public static class FakeApi
         dp.Goal = "none";
         dp.PatrolPoints.Clear();
         dp.PatrolIndex = 0;
+        dp.HoldPos = false;
+        dp.RoamPos = Vector2.Zero;
         return true;
     }
 
@@ -256,6 +262,13 @@ public static class FakeApi
 
         MyCmd.ApplyRole(dp, role.Items);
         return true;
+    }
+
+    private static Vector2 ClampWorld(Vector2 pos)
+    {
+        var maxX = (Main.maxTilesX - 1) * 16f;
+        var maxY = (Main.maxTilesY - 1) * 16f;
+        return new Vector2(Math.Clamp(pos.X, 0f, maxX), Math.Clamp(pos.Y, 0f, maxY));
     }
 
     private static void ResetStuck(DummyPlayer dp)
