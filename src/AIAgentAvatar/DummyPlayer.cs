@@ -324,6 +324,8 @@ internal class DummyPlayer
             return "未连接";
         if (UseTime > 0)  // 武器冷却中，表示最近攻击过
             return "战斗";
+        if (HoldPos)
+            return "驻守";
         if (RoamPos != Vector2.Zero && NextRoamTime > DateTime.UtcNow)
             return "漫游";
         if (Follow != null)

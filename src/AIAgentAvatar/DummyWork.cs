@@ -119,6 +119,28 @@ internal static class DummyWork
     #region GetTaget - 获取行动目标
     private static void GetTaget(DummyPlayer dp, Player p, TSPlayer? p2, out Vector2 tarPos, out NPC? npc)
     {
+        // 1) 指定目标优先（AI 让打谁就打谁）
+        if (dp.TargetNpc >= 0 && dp.TargetNpc < Main.npc.Length)
+        {
+            var forced = Main.npc[dp.TargetNpc];
+            if (forced is not null && forced.active && !forced.friendly && !forced.townNPC && !IsBanNpc(forced))
+            {
+                npc = forced;
+                tarPos = forced.boss ? BoxEdge(forced, p.Center, Config.StopDist) : forced.Center;
+                return;
+            }
+
+            dp.TargetNpc = -1;
+        }
+
+        // 2) 定点模式：不随机漫游，站在 RoamPos
+        if (dp.HoldPos && dp.RoamPos != Vector2.Zero)
+        {
+            npc = null;
+            tarPos = dp.RoamPos;
+            return;
+        }
+
         // ----- 移动目标 -----
         npc = p2 != null ? AutoAttack.FindTar(p2.TPlayer, Config.NpcRange * 16f) :
                (Config.RoamAttack ? AutoAttack.FindTar(p, Config.NpcRange * 16f) : null);
@@ -174,7 +196,7 @@ internal static class DummyWork
     private static bool Stuck(DummyPlayer dp, Player plr, TSPlayer? plr2, NPC? npc, ref Vector2 tarPos)
     {
         // 受阻超过 3 帧且处于漫游模式（无跟随玩家、无攻击目标）时，重新生成漫游点
-        if (dp.BlockedTimer > 3 && dp.Follow == null && npc == null)
+        if (dp.BlockedTimer > 3 && dp.Follow == null && npc == null && !dp.HoldPos)
         {
             ResetRoam(dp, plr);
             dp.BlockedTimer = 0;
@@ -185,6 +207,7 @@ internal static class DummyWork
         float diffY = Math.Abs(tarPos.Y - plr.position.Y);
         if (diffX <= Config.StopDist * 16 && diffY <= Config.StopDist * 16)
         {
+            dp.BlockedTimer = 0;
             return true; // 已到达目标，无需处理卡住
         }
 
@@ -230,7 +253,6 @@ internal static class DummyWork
     #endregion
 
     #region ApplyMove - 移动决策（水平移动、跳跃、飞行）
-    private static readonly float speed = Config.MoveSpeed * 16f / 60f;
     private static void ApplyMove(DummyPlayer dp, Player plr, Vector2 tarPos,
         ref Vector2 vel, ref PlayerControlData ctrl, ref PlayerMiscData1 misc1, ref PlayerMiscData2 misc2)
     {
@@ -239,9 +261,16 @@ internal static class DummyWork
         plr.doorHelper.AllowOpeningDoorsByVelocityAloneForATime(20); // 允许用速度开门的时间
 
         Vector2 myPos = plr.position;
+        float speed = Config.MoveSpeed * 16f / 60f;
+
+        if (Math.Abs(tarPos.X - myPos.X) <= Config.StopDist * 16 &&
+            Math.Abs(tarPos.Y - myPos.Y) <= Config.StopDist * 16)
+        {
+            return; // 已经到点，保持站定
+        }
+
         ctrl.FaceDirection = tarPos.X > myPos.X;
         float dif = tarPos.Y - myPos.Y;
-        float speed = Config.MoveSpeed * 16f / 60f;
         float hopeX = (ctrl.FaceDirection ? 1f : -1f) * speed;
 
         // 水平移动
