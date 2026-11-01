@@ -44,7 +44,6 @@ public static class ConfigText
         ["列表"] = "供应商条目，键名可以自定义，新增的一起填密钥和地址",
         ["名称"] = "显示用名称",
         ["地址"] = "OpenAI 兼容接口的 Base URL",
-        ["协议"] = "一般保持 openai，不要改",
         ["最大Token参数"] = "max_tokens；OpenAI 新模型用 max_completion_tokens",
         ["支持温度"] = "该接口是否接受 temperature 参数",
         ["支持流式用量"] = "流式响应里是否返回 usage",

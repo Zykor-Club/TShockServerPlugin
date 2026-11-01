@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -90,24 +91,30 @@ public sealed class MainThreadQueue
     {
         ArgumentNullException.ThrowIfNull(func);
         var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancelled = new StrongBox<bool>(false);
+
         Post(() =>
         {
+            // 已经超时取消的任务不要再执行（避免副作用重复生效）
+            if (Volatile.Read(ref cancelled.Value)) return;
+
             try { tcs.TrySetResult(func()); }
             catch (Exception ex) { tcs.TrySetException(ex); }
         });
-        return WaitAsync(tcs.Task, timeoutMs);
+
+        return WaitAsync(tcs.Task, timeoutMs, cancelled);
     }
 
-    private static async Task<T> WaitAsync<T>(Task<T> task, int timeoutMs)
+    private static async Task<T> WaitAsync<T>(Task<T> task, int timeoutMs, StrongBox<bool> cancelled)
     {
-        using var cts = new CancellationTokenSource(timeoutMs);
-        var delay = Task.Delay(Timeout.Infinite, cts.Token);
+        var delay = Task.Delay(timeoutMs);
         var completed = await Task.WhenAny(task, delay).ConfigureAwait(false);
         if (completed != task)
         {
+            Volatile.Write(ref cancelled.Value, true);
             throw new TimeoutException($"主线程执行超时（{timeoutMs}ms）");
         }
-        cts.Cancel();
+
         return await task.ConfigureAwait(false);
     }
 

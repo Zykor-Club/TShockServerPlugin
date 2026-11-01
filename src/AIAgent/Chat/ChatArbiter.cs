@@ -38,6 +38,11 @@ public static class ChatArbiter
 
         if (string.Equals(cfg.Mode, "全部", StringComparison.OrdinalIgnoreCase))
         {
+            if (cfg.DailyReplyLimit > 0 && signal.RepliesToday >= cfg.DailyReplyLimit)
+            {
+                return new ChatDecision(false, 0, "今日上限");
+            }
+
             if (signal.SecondsSinceAnyReply < cfg.GlobalCooldownSeconds)
             {
                 return new ChatDecision(false, 0, "公屏冷却");

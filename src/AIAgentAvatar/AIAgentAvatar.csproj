@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <Import Project="..\..\template.targets" />
+
+    <PropertyGroup>
+        <AssemblyName>AIAgentAvatar</AssemblyName>
+        <RootNamespace>FakePlayer</RootNamespace>
+        <Version>1.1.0</Version>
+        <Authors>少司命、羽学（AIAgent 分身改造：星梦）</Authors>
+        <Description>单假人分身，供 AIAgent 操控与发言</Description>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Reference Include="TrProtocol">
+            <HintPath>..\..\lib\TrProtocol.dll</HintPath>
+            <Aliases>TrAlias</Aliases>
+        </Reference>
+    </ItemGroup>
+</Project>

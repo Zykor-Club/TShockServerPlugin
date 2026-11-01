@@ -68,6 +68,17 @@ public sealed class AIAgentPlugin : TerrariaPlugin
         registry.Register(new BringPlayerTool());
         registry.Register(new RunCommandTool());
         registry.Register(new ListCommandsTool());
+        registry.Register(new AvatarStatusTool());
+        registry.Register(new AvatarSayTool());
+        registry.Register(new AvatarFollowTool());
+        registry.Register(new AvatarGotoTool());
+        registry.Register(new AvatarAttackTool());
+        registry.Register(new AvatarScanTool());
+        registry.Register(new AvatarGuardTool());
+        registry.Register(new AvatarPatrolTool());
+        registry.Register(new AvatarReturnTool());
+        registry.Register(new AvatarPvpTool());
+        registry.Register(new AvatarStopTool());
         PluginState.Tools = new ToolInvoker(registry);
 
         TShockAPI.Commands.ChatCommands.Add(new Command("aiagent.use", OnAig, "aig")
@@ -77,6 +88,7 @@ public sealed class AIAgentPlugin : TerrariaPlugin
             DoLog = false,
         });
 
+        GetDataHandlers.PlayerDamage += OnPlayerDamage;
         GeneralHooks.ReloadEvent += OnReload;
         ServerApi.Hooks.ServerJoin.Register(this, OnJoin);
         ServerApi.Hooks.ServerLeave.Register(this, OnLeave);
@@ -104,6 +116,7 @@ public sealed class AIAgentPlugin : TerrariaPlugin
             _idleCts?.Dispose();
             _idleCts = null;
 
+            GetDataHandlers.PlayerDamage -= OnPlayerDamage;
             GeneralHooks.ReloadEvent -= OnReload;
             ServerApi.Hooks.ServerJoin.Deregister(this, OnJoin);
             ServerApi.Hooks.ServerLeave.Deregister(this, OnLeave);
@@ -193,6 +206,38 @@ public sealed class AIAgentPlugin : TerrariaPlugin
         PluginState.Wiki = LoadWiki();
         PluginLog.Info($"配置已重新加载 | 模型 {PluginState.Config.Model}");
         args.Player?.SendSuccessMessage("[AIAgent] 配置已重新加载");
+    }
+
+    private static void OnPlayerDamage(object? sender, GetDataHandlers.PlayerDamageEventArgs args)
+    {
+        if (args.Player is null) return;
+
+        // 先按名字前缀挡掉普通玩家，避免每次伤害都投一次主线程
+        var prefix = PluginState.Config.Chat.FakeNamePrefix;
+        if (string.IsNullOrEmpty(prefix) || !args.Player.Name.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var victim = args.Player.Name;
+        var damage = args.Damage;
+        var pvp = args.PVP;
+        var reason = args.PlayerDeathReason;
+
+        // 包线程只抓数据，判定和读取世界放到主线程
+        PluginState.MainThread.Post(() =>
+        {
+            var status = Avatar.AvatarBridge.Status();
+            if (status is null || !string.Equals(victim, status.Name, StringComparison.Ordinal)) return;
+
+            var source = Avatar.AvatarDamage.ResolveSource(reason);
+            Avatar.AvatarDamage.Record(damage, source, pvp);
+
+            if (PluginState.Config.DebugLog)
+            {
+                PluginLog.Info($"分身受伤: {damage} 来自 {source} pvp={pvp}");
+            }
+        });
     }
 
     private static Wiki.IWikiSource LoadWiki()

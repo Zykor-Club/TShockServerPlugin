@@ -101,10 +101,27 @@ public static class ChatService
             var emotionHint = EmotionDetector.Hint(EmotionDetector.Detect(isEvent ? string.Empty : input));
             var careHint = isEvent ? string.Empty : CareService.LateNightHint(key, DateTime.Now, cfg.Care);
             var taskHint = BuildTaskHint(input);
+            var avatarIntent = Avatar.AvatarBridge.Available && LooksLikeAvatarAction(input);
+            var nudged = false;
+            var avatarHint = string.Empty;
+            if (Avatar.AvatarBridge.Available)
+            {
+                try
+                {
+                    // 读 TPlayer 位置要在主线程
+                    avatarHint = await PluginState.MainThread
+                        .InvokeAsync(BuildAvatarHint, 1500)
+                        .ConfigureAwait(false);
+                }
+                catch
+                {
+                    avatarHint = "分身状态暂时读不到。";
+                }
+            }
             var system = PromptBuilder.BuildSystem(
                 cfg, playerName, subject?.GroupName, DateTime.Now,
                 memoryBlock, PluginState.Persona, Crafting.WorldProgress.CachedBrief,
-                emotionHint, sessionSummary, recentChat, careHint, affinity, taskHint);
+                emotionHint, sessionSummary, recentChat, careHint, affinity, taskHint, avatarHint);
             var messages = new List<ChatMessage> { ChatMessage.System(system) };
 
             if (cfg.Memory.Enabled && !isEvent)
@@ -117,10 +134,14 @@ public static class ChatService
 
             messages.Add(ChatMessage.User(input));
 
-            var toolSchema = cfg.EnableTools
+            var toolSchema = cfg.EnableTools && provider.SupportsTools
                 ? await BuildSchemaOnMainAsync(player).ConfigureAwait(false)
                 : new JsonArray();
             var useTools = toolSchema.Count > 0;
+
+            var model = string.IsNullOrWhiteSpace(cfg.Model)
+                ? provider.DefaultModel ?? "deepseek-chat"
+                : cfg.Model;
 
             var client = new OpenAiCompatClient(provider.BaseUrl, provider.ApiKey);
             var emitter = new BubbleEmitter(player, cfg, mode);
@@ -136,7 +157,7 @@ public static class ChatService
                 var options = new ChatOptions(
                     provider.BaseUrl,
                     provider.ApiKey,
-                    cfg.Model,
+                    model,
                     messages,
                     cfg.Temperature,
                     MaxTokens: 0,
@@ -158,6 +179,14 @@ public static class ChatService
                     // 调工具前的"我看看"也给玩家看到，别吞掉
                     if (!string.IsNullOrWhiteSpace(result.Text)) emitter.Push(result.Text);
 
+                    for (var i = 0; i < result.ToolCalls.Count; i++)
+                    {
+                        if (string.IsNullOrWhiteSpace(result.ToolCalls[i].Id))
+                        {
+                            result.ToolCalls[i].Id = $"call_{reqId}_{step}_{i}";
+                        }
+                    }
+
                     var assistant = new ChatMessage { Role = "assistant", Content = result.Text ?? string.Empty };
                     foreach (var call in result.ToolCalls)
                     {
@@ -178,6 +207,19 @@ public static class ChatService
                     continue;
                 }
 
+                // 明确要求分身做事却没调工具：打回一次，必须真的执行
+                if (useTools && avatarIntent && !nudged)
+                {
+                    nudged = true;
+                    if (!string.IsNullOrWhiteSpace(result.Text)) emitter.Push(result.Text);
+                    messages.Add(new ChatMessage { Role = "assistant", Content = result.Text ?? string.Empty });
+                    messages.Add(ChatMessage.System(
+                        "系统校验：玩家这条消息是在要求分身做具体动作，但你刚才没有调用任何工具。" +
+                        "请立刻调用合适的 avatar_* 工具（avatar_follow / avatar_stop / avatar_guard / avatar_patrol / " +
+                        "avatar_return / avatar_say / avatar_attack / avatar_goto），不要只用文字回答。"));
+                    continue;
+                }
+
                 finalText = result.Text ?? string.Empty;
                 if (useTools) emitter.Push(finalText);
                 emitter.Flush();
@@ -188,13 +230,30 @@ public static class ChatService
             {
                 // 轮次用完还没正文：强制一次不带工具的收尾，保证玩家拿到回答
                 var closing = new ChatOptions(
-                    provider.BaseUrl, provider.ApiKey, cfg.Model, messages,
+                    provider.BaseUrl, provider.ApiKey, model, messages,
                     cfg.Temperature, 0, cfg.EnableStream,
                     provider.MaxTokensParam, provider.SupportsTemperature, provider.SupportsStreamUsage,
                     Tools: null);
                 var last = await client.SendAsync(closing, useTools ? null : delta => emitter.Push(delta), CancellationToken.None).ConfigureAwait(false);
                 promptTokens += last.Usage.PromptTokens;
                 completionTokens += last.Usage.CompletionTokens;
+
+                if (last.ToolCalls.Count > 0)
+                {
+                    var forced = new List<ChatMessage>(messages)
+                    {
+                        ChatMessage.System("现在不能调用任何工具。请直接用一两句话把已经完成/失败的结果告诉玩家。"),
+                    };
+                    var closing2 = new ChatOptions(
+                        provider.BaseUrl, provider.ApiKey, model, forced,
+                        cfg.Temperature, 0, cfg.EnableStream,
+                        provider.MaxTokensParam, provider.SupportsTemperature, provider.SupportsStreamUsage,
+                        Tools: null);
+                    last = await client.SendAsync(closing2, useTools ? null : delta => emitter.Push(delta), CancellationToken.None).ConfigureAwait(false);
+                    promptTokens += last.Usage.PromptTokens;
+                    completionTokens += last.Usage.CompletionTokens;
+                }
+
                 finalText = last.Text ?? string.Empty;
                 if (useTools) emitter.Push(finalText);
                 emitter.Flush();
@@ -248,6 +307,29 @@ public static class ChatService
         {
             PluginState.Limiter.End(rateKey);
         }
+    }
+
+    private static readonly string[] AvatarActionWords =
+    {
+        "跟着我", "别跟", "不要跟", "停一下", "停下", "站住", "巡逻", "守着", "守住", "守点", "回城",
+        "说一句", "说句话", "让它跟", "让它去", "让它停", "让它守",
+    };
+
+    private static bool LooksLikeAvatarAction(string input) =>
+        input.Contains("分身", StringComparison.Ordinal) ||
+        AvatarActionWords.Any(word => input.Contains(word, StringComparison.Ordinal));
+
+    /// <summary>给提示词用的分身状态，模型不用先调 avatar_status 就能判断。</summary>
+    private static string BuildAvatarHint()
+    {
+        if (!Avatar.AvatarBridge.Available) return string.Empty;
+
+        var s = Avatar.AvatarBridge.Status();
+        if (s is null) return "分身还没有创建（需要管理员 /fake add）。";
+
+        var follow = string.IsNullOrWhiteSpace(s.Follow) ? "没有跟随任何人" : "正在跟随 " + s.Follow;
+        return $"分身在线：{s.State}，位置约 ({Math.Round(s.X / 16f)},{Math.Round(s.Y / 16f)}) 格，" +
+               $"血量 {s.Life}/{s.LifeMax}，{follow}。";
     }
 
     private static async Task<JsonArray> BuildSchemaOnMainAsync(TSPlayer player)

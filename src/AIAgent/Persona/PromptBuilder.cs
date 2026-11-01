@@ -25,7 +25,8 @@ public static class PromptBuilder
         IReadOnlyList<string> recentChat,
         string careHint,
         int affinity,
-        string taskHint)
+        string taskHint,
+        string avatarHint)
     {
         var sb = new StringBuilder();
 
@@ -63,6 +64,19 @@ public static class PromptBuilder
 
         var tier = AffinityTier.Describe(affinity);
         sb.AppendLine($"你和他现在的关系：{tier.Tier}（好感度 {affinity}/100）。可以叫他「{tier.Address}」，语气{tier.Tone}。");
+
+        if (!string.IsNullOrWhiteSpace(avatarHint))
+        {
+            sb.AppendLine();
+            sb.AppendLine("【分身】" + avatarHint);
+            sb.AppendLine("- 坐标单位是格；goto 超过 100 格会传送、到达后停住；follow 自动打怪；guard 守点还手；stop 原地不还手；patrol 2~6 点；return 回城。");
+            sb.AppendLine("- 要分身说话用 avatar_say（显示成它自己的名字），不要用聊天冒充它；pvp 打开后玩家可攻击它，它不主动打玩家。");
+            sb.AppendLine("- 一次只下一个指令；做完/卡住用 avatar_status 或 avatar_scan 确认；attacking=true 是在打怪，不是卡住。");
+            sb.AppendLine("- 玩家要求分身做事时必须真的调工具，没调不能说“已经做了”。");
+            sb.AppendLine("- “跟着我”→follow 且 target 留空；“不要跟着我/别跟”→只 stop；“在哪/在干嘛”→只 status。");
+            sb.AppendLine("- 守一片用 guard，完全站住用 stop；去某处先 status 拿坐标再 goto 偏移。");
+            sb.AppendLine("- 分身不能挖矿/建造，只能告诉你矿的位置。");
+        }
 
         if (!string.IsNullOrWhiteSpace(taskHint))
         {
