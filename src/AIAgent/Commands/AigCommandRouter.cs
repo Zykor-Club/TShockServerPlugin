@@ -74,6 +74,12 @@ public static class AigCommandRouter
         ["set_weather"] = "改天气",
         ["run_command"] = "执行服务器指令",
         ["list_commands"] = "查可用指令",
+        ["avatar_status"] = "看分身状态",
+        ["avatar_say"] = "让分身说话",
+        ["avatar_follow"] = "让分身跟随",
+        ["avatar_goto"] = "让分身走过去",
+        ["avatar_attack"] = "让分身打怪",
+        ["avatar_stop"] = "让分身停下",
     };
 
     private static void SendHelp(TSPlayer player)

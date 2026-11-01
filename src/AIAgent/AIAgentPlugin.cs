@@ -68,6 +68,12 @@ public sealed class AIAgentPlugin : TerrariaPlugin
         registry.Register(new BringPlayerTool());
         registry.Register(new RunCommandTool());
         registry.Register(new ListCommandsTool());
+        registry.Register(new AvatarStatusTool());
+        registry.Register(new AvatarSayTool());
+        registry.Register(new AvatarFollowTool());
+        registry.Register(new AvatarGotoTool());
+        registry.Register(new AvatarAttackTool());
+        registry.Register(new AvatarStopTool());
         PluginState.Tools = new ToolInvoker(registry);
 
         TShockAPI.Commands.ChatCommands.Add(new Command("aiagent.use", OnAig, "aig")

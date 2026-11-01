@@ -32,6 +32,16 @@ public static class GameChatChannel
         {
             var player = args.Player;
             if (player is null) return;
+
+            // 分身自己说的话不能再触发 AI，否则会自问自答
+            var cfg = PluginState.Config.Chat;
+            if (cfg.IgnoreFakePlayers &&
+                !string.IsNullOrEmpty(cfg.FakeNamePrefix) &&
+                player.Name.StartsWith(cfg.FakeNamePrefix, StringComparison.Ordinal))
+            {
+                return;
+            }
+
             Process(player, args.RawText);
         }
         catch (Exception ex)

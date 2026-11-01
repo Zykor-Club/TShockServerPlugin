@@ -49,6 +49,8 @@
 | `teleport_to_player` / `bring_player` | `tshock.tp.self` / `tshock.tp.others` | 传送 |
 | `set_time` / `set_weather` | `tshock.world.time.set` / `tshock.world.rain` | 时间与天气 |
 | `run_command` / `list_commands` | `aiagent.tool.command` + 指令自身权限 | 执行 TShock 指令 |
+| `avatar_status` / `avatar_say` / `avatar_follow` | `aiagent.avatar` | 分身状态、说话、跟随 |
+| `avatar_goto` / `avatar_attack` / `avatar_stop` | `aiagent.avatar` | 让分身走过去、打怪、停下 |
 
 ## 配置
 
@@ -122,6 +124,12 @@
 - `auto`：有库用库，没库用 json。
 
 完整中文 Wiki 约 5,497 条，可通过 MediaWiki API 批量导出（不是爬 HTML）。批量 `wikitext` 转换质量受模板影响较大，推荐用 `prop=extracts` 逐条导出纯文本。
+
+## 分身（需要 AIAgentAvatar）
+
+- 安装 [AIAgentAvatar](../AIAgentAvatar/README.md) 后，AI 可以操控一个假人分身；
+- 分身的登录、走路、攻击由假人插件负责，AI 只下"说话/跟随/去某处/打谁/停下"这类意图；
+- 分身默认会说话，但它的聊天不会触发 AI 回复（`忽略假人`）。
 
 ## 人设
 

@@ -249,6 +249,12 @@ public sealed class ChatSettings
     [JsonPropertyName("事件播报")]
     public bool EventAnnouncements { get; set; } = true;
 
+    [JsonPropertyName("忽略假人")]
+    public bool IgnoreFakePlayers { get; set; } = true;
+
+    [JsonPropertyName("假人前缀")]
+    public string FakeNamePrefix { get; set; } = "假人";
+
     [JsonPropertyName("死亡冷却秒")]
     public int DeathCooldownSeconds { get; set; } = 180;
 }
