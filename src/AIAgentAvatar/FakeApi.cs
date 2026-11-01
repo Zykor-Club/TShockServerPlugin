@@ -36,7 +36,7 @@ public static class FakeApi
     public static AvatarStatus? Get()
     {
         var dp = Current();
-        if (dp is null) return null;
+        if (dp is null || dp.PlayerSlot == 255) return null;
 
         var plr = dp.TSPlayer?.TPlayer;
         return new AvatarStatus(
@@ -96,8 +96,9 @@ public static class FakeApi
     {
         var dp = Current();
         if (dp is null) return false;
+        if (target is null || !target.Active || target.TPlayer is null) return false;
 
-                dp.Goal = "none";
+        dp.Goal = "none";
         dp.PatrolPoints.Clear();
         dp.PatrolIndex = 0;
         dp.Follow = target;
@@ -212,10 +213,13 @@ public static class FakeApi
         if (dp is null) return false;
 
         // 停止 = 原地站住，而不是继续漫游
-                dp.Goal = "none";
+        var plr = dp.TSPlayer?.TPlayer;
+        if (plr is null) return false;
+
+        dp.Goal = "none";
         dp.PatrolPoints.Clear();
         dp.PatrolIndex = 0;
-        var pos = dp.TSPlayer?.TPlayer?.position ?? Vector2.Zero;
+        var pos = plr.position;
         dp.Follow = null;
         dp.TargetNpc = -1;
         dp.HoldPos = true;

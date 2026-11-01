@@ -42,6 +42,13 @@ public static class AvatarBridge
         if (value is null) return null;
 
         var t = value.GetType();
+
+        // 记录字段改名/版本不一致时，宁可当作"不可用"，也不要拿 0 去操作
+        foreach (var required in new[] { "Name", "State", "X", "Y", "Life" })
+        {
+            if (t.GetProperty(required) is null) return null;
+        }
+
         object? P(string name) => t.GetProperty(name)?.GetValue(value);
 
         return new AvatarSnapshot(
@@ -101,7 +108,9 @@ public static class AvatarBridge
         var api = Api();
         if (api is null) return null;
 
-        var info = api.GetMethod(method, BindingFlags.Public | BindingFlags.Static);
+        var info = api
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .FirstOrDefault(m => m.Name == method && m.GetParameters().Length == args.Length);
         if (info is null) return null;
 
         try { return info.Invoke(null, args); }

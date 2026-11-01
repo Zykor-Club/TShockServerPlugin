@@ -103,7 +103,21 @@ public static class ChatService
             var taskHint = BuildTaskHint(input);
             var avatarIntent = Avatar.AvatarBridge.Available && LooksLikeAvatarAction(input);
             var nudged = false;
-            var avatarHint = BuildAvatarHint();
+            var avatarHint = string.Empty;
+            if (Avatar.AvatarBridge.Available)
+            {
+                try
+                {
+                    // 读 TPlayer 位置要在主线程
+                    avatarHint = await PluginState.MainThread
+                        .InvokeAsync(BuildAvatarHint, 1500)
+                        .ConfigureAwait(false);
+                }
+                catch
+                {
+                    avatarHint = "分身状态暂时读不到。";
+                }
+            }
             var system = PromptBuilder.BuildSystem(
                 cfg, playerName, subject?.GroupName, DateTime.Now,
                 memoryBlock, PluginState.Persona, Crafting.WorldProgress.CachedBrief,
@@ -161,6 +175,14 @@ public static class ChatService
                     // 调工具前的"我看看"也给玩家看到，别吞掉
                     if (!string.IsNullOrWhiteSpace(result.Text)) emitter.Push(result.Text);
 
+                    for (var i = 0; i < result.ToolCalls.Count; i++)
+                    {
+                        if (string.IsNullOrWhiteSpace(result.ToolCalls[i].Id))
+                        {
+                            result.ToolCalls[i].Id = $"call_{reqId}_{step}_{i}";
+                        }
+                    }
+
                     var assistant = new ChatMessage { Role = "assistant", Content = result.Text ?? string.Empty };
                     foreach (var call in result.ToolCalls)
                     {
@@ -185,6 +207,7 @@ public static class ChatService
                 if (useTools && avatarIntent && !nudged)
                 {
                     nudged = true;
+                    if (!string.IsNullOrWhiteSpace(result.Text)) emitter.Push(result.Text);
                     messages.Add(new ChatMessage { Role = "assistant", Content = result.Text ?? string.Empty });
                     messages.Add(ChatMessage.System(
                         "系统校验：玩家这条消息是在要求分身做具体动作，但你刚才没有调用任何工具。" +
@@ -210,6 +233,23 @@ public static class ChatService
                 var last = await client.SendAsync(closing, useTools ? null : delta => emitter.Push(delta), CancellationToken.None).ConfigureAwait(false);
                 promptTokens += last.Usage.PromptTokens;
                 completionTokens += last.Usage.CompletionTokens;
+
+                if (last.ToolCalls.Count > 0)
+                {
+                    var forced = new List<ChatMessage>(messages)
+                    {
+                        ChatMessage.System("现在不能调用任何工具。请直接用一两句话把已经完成/失败的结果告诉玩家。"),
+                    };
+                    var closing2 = new ChatOptions(
+                        provider.BaseUrl, provider.ApiKey, cfg.Model, forced,
+                        cfg.Temperature, 0, cfg.EnableStream,
+                        provider.MaxTokensParam, provider.SupportsTemperature, provider.SupportsStreamUsage,
+                        Tools: null);
+                    last = await client.SendAsync(closing2, useTools ? null : delta => emitter.Push(delta), CancellationToken.None).ConfigureAwait(false);
+                    promptTokens += last.Usage.PromptTokens;
+                    completionTokens += last.Usage.CompletionTokens;
+                }
+
                 finalText = last.Text ?? string.Empty;
                 if (useTools) emitter.Push(finalText);
                 emitter.Flush();
@@ -267,11 +307,12 @@ public static class ChatService
 
     private static readonly string[] AvatarActionWords =
     {
-        "分身", "跟着", "别跟", "不要跟", "停下", "站住", "原地", "巡逻", "守着", "守住", "守点", "回城", "回去",
-        "去打", "去左边", "去右边", "去上面", "去下面", "过去", "说一句", "说句话", "帮我看", "让它",
+        "跟着我", "别跟", "不要跟", "停一下", "停下", "站住", "巡逻", "守着", "守住", "守点", "回城",
+        "说一句", "说句话", "让它跟", "让它去", "让它停", "让它守",
     };
 
     private static bool LooksLikeAvatarAction(string input) =>
+        input.Contains("分身", StringComparison.Ordinal) ||
         AvatarActionWords.Any(word => input.Contains(word, StringComparison.Ordinal));
 
     /// <summary>给提示词用的分身状态，模型不用先调 avatar_status 就能判断。</summary>

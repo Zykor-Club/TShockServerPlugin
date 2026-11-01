@@ -175,6 +175,14 @@ public static class GameChatChannel
             var tplayer = player.TPlayer;
             if (tplayer is null) continue;
 
+            // 假人死了不触发安慰/死亡回应
+            if (cfg.Chat.IgnoreFakePlayers &&
+                !string.IsNullOrEmpty(cfg.Chat.FakeNamePrefix) &&
+                player.Name.StartsWith(cfg.Chat.FakeNamePrefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             var dead = tplayer.dead || tplayer.statLife <= 0;
             DeadState.TryGetValue(player.Index, out var wasDead);
 

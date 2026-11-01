@@ -49,8 +49,11 @@
 | `teleport_to_player` / `bring_player` | `tshock.tp.self` / `tshock.tp.others` | 传送 |
 | `set_time` / `set_weather` | `tshock.world.time.set` / `tshock.world.rain` | 时间与天气 |
 | `run_command` / `list_commands` | `aiagent.tool.command` + 指令自身权限 | 执行 TShock 指令 |
-| `avatar_status` / `avatar_say` / `avatar_follow` | `aiagent.avatar` | 分身状态、说话、跟随 |
-| `avatar_goto` / `avatar_attack` / `avatar_stop` | `aiagent.avatar` | 让分身走过去、打怪、停下 |
+| `avatar_status` / `avatar_scan` | `aiagent.avatar` | 分身状态、扫描周围的怪/矿/玩家 |
+| `avatar_say` / `avatar_follow` / `avatar_goto` | `aiagent.avatar` | 说话、跟随、走过去 |
+| `avatar_guard` / `avatar_patrol` / `avatar_return` | `aiagent.avatar` | 守点、巡逻、回城 |
+| `avatar_attack` / `avatar_stop` | `aiagent.avatar` | 打附近最近目标、原地驻守 |
+| `avatar_pvp` | `aiagent.avatar` | 开关分身的 PvP 状态 |
 
 ## 配置
 
@@ -154,7 +157,7 @@ dotnet build src/AIAgent/AIAgent.csproj -c Release
 
 ### v2.0.0 (2026-11-01)
 - 全新重构：聊天、长期记忆、工具调用、事件播报、主动消息
-- 14 个内置工具，全部按 TShock 原生权限鉴权
+- 25 个内置工具，全部按 TShock 原生权限鉴权
 - 支持 TShock 指令执行（玩家身份，三层鉴权）
 - 首次加载内嵌人设与离线 Wiki
 

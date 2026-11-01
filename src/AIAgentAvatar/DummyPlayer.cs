@@ -45,7 +45,7 @@ namespace FakePlayer;
 internal class DummyPlayer
 {
     // 假人占用的槽位（0~255）
-    public byte PlayerSlot { get; private set; }
+    public byte PlayerSlot { get; private set; } = 255;
     // 客户端版本标识，需与服务器匹配
     public string CurRelease = Config.Version;
 
@@ -156,7 +156,11 @@ internal class DummyPlayer
     {
         if (packet is IPlayerSlot ips)
             ips.PlayerSlot = this.PlayerSlot;
-        this.client.Send(packet);
+
+        lock (_sendGate)
+        {
+            this.client.Send(packet);
+        }
     }
     #endregion
 
@@ -237,8 +241,16 @@ internal class DummyPlayer
     #region 发送心跳包,通知服务器假人仍活跃
     private void OnFrame(object? state)
     {
-        if (!this.Active) return;
-        this.SendPacket(new PlayerActive() { PlayerSlot = this.PlayerSlot, Active = true });
+        if (!this.Active || !this.IsPlaying || this.PlayerSlot == 255) return;
+
+        try
+        {
+            this.SendPacket(new PlayerActive() { PlayerSlot = this.PlayerSlot, Active = true });
+        }
+        catch
+        {
+            this.Active = false;
+        }
     }
     #endregion
 
@@ -294,16 +306,15 @@ internal class DummyPlayer
             {
                 SetPvp(true);
             }
+
+            Plugin.DesiredAvatar = this.TSPlayer?.Name ?? Plugin.DesiredAvatar;
+            Plugin.ReconnectBackoff = 600;
+            Plugin.NextReconnectTick = 0;
         });
 
-        // 忽略拾取相关的入站包
-        this.On<ItemOwner>(p =>
-        {
-            SendPacket(new SyncItemDespawn()
-            {
-                ItemSlot = p.ItemSlot
-            });
-        });
+        // 死了就断开，让 AutoReconnect 重新登录（会在出生点复活）
+        this.On<PlayerDeathV2>(_ => this.Close());
+
     }
     #endregion
 
@@ -329,17 +340,32 @@ internal class DummyPlayer
         this.timer = new Timer(this.OnFrame, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1000));
         Task.Run(() =>
         {
-            while (this.Active && !this.shouldExit())
+            try
             {
-                INetPacket packet = this.client.Receive();
-                try
+                while (this.Active && !this.shouldExit())
                 {
-                    if (this.handlers.TryGetValue(packet.GetType(), out var act))
-                        act(packet);
+                    INetPacket packet;
+                    try
+                    {
+                        packet = this.client.Receive();
+                    }
+                    catch
+                    {
+                        break;
+                    }
+
+                    try
+                    {
+                        if (this.handlers.TryGetValue(packet.GetType(), out var act))
+                            act(packet);
+                    }
+                    catch { }
                 }
-                catch { }
             }
-            this.Close();
+            finally
+            {
+                this.Close();
+            }
         });
     }
     #endregion
@@ -354,6 +380,9 @@ internal class DummyPlayer
             return "未连接";
         if (UseTime > 0)  // 武器冷却中，表示最近攻击过
             return "战斗";
+        if (Goal == "guard") return "守点";
+        if (Goal == "patrol") return "巡逻";
+        if (Goal == "return") return "回城";
         if (HoldPos)
             return "驻守";
         if (RoamPos != Vector2.Zero && NextRoamTime > DateTime.UtcNow)

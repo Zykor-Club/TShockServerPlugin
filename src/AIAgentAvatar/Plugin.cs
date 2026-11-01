@@ -155,12 +155,16 @@ public class Plugin(Main game) : TerrariaPlugin(game)
                 {
                     f.Close();
                     Fakes[i] = null;
+                    continue;
                 }
 
                 if (f.Follow?.Index == args.Who)
                 {
                     f.Follow = null;
-                    f.TSPlayer.TeleportToWorldSpawn();
+                    if (f.Active && f.TSPlayer?.TPlayer is not null)
+                    {
+                        f.TSPlayer.TeleportToWorldSpawn();
+                    }
                 }
             }
         }
@@ -304,7 +308,7 @@ public class Plugin(Main game) : TerrariaPlugin(game)
                 var plr = dp.TSPlayer?.TPlayer;
                 if (plr is null) continue;
 
-                var hasGoal = dp.HoldPos || dp.Follow is not null || dp.TargetNpc >= 0;
+                var hasGoal = dp.HoldPos || dp.Follow is not null || dp.TargetNpc >= 0 || dp.Goal != "none";
                 var moved = plr.position.Distance(dp.StuckCheckPos);
                 dp.StuckCheckPos = plr.position;
 

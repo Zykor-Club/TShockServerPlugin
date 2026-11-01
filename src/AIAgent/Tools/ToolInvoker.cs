@@ -55,7 +55,7 @@ public sealed class ToolInvoker
                 continue;
             }
 
-            var validation = tool.Validate(args, player);
+            var validation = await ValidateOnMainAsync(tool, args, player).ConfigureAwait(false);
             var hasPermission = await HasPermissionAsync(player, tool.Permission).ConfigureAwait(false);
 
             var decision = ToolPolicy.Evaluate(
@@ -95,6 +95,20 @@ public sealed class ToolInvoker
     /// 在主线程做权限判断：TSPlayer.HasPermission 会触发 PlayerHooks.OnPlayerPermission，
     /// 别的插件的处理器默认按主线程写，别在线程池上叫它们。
     /// </summary>
+    private static async Task<ToolValidation> ValidateOnMainAsync(ITool tool, JsonElement args, TSPlayer player)
+    {
+        try
+        {
+            return await PluginState.MainThread
+                .InvokeAsync(() => tool.Validate(args, player), 2000)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            return tool.Validate(args, player);
+        }
+    }
+
     private static async Task<bool> HasPermissionAsync(TSPlayer player, string permission)
     {
         try

@@ -66,6 +66,7 @@ public sealed class AvatarStatusTool : ITool
     public string Name => "avatar_status";
     public string Description => "查看分身的实时状态（是否在线、在做什么、坐标、血量、跟随目标）。下 goto/attack 之前先用它确认位置。";
     public string Permission => AvatarToolHelper.Permission;
+    public bool IsAvailable(Config.PluginConfig cfg) => AvatarBridge.Available;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false };
     public ToolValidation Validate(JsonElement args, TSPlayer caller) => new(true, null);
@@ -84,6 +85,7 @@ public sealed class AvatarSayTool : ITool
     public string Name => "avatar_say";
     public string Description => "让分身在公屏说一句话，会显示成它自己的名字。这是分身说话的唯一方式，不要用聊天消息冒充它。";
     public string Permission => AvatarToolHelper.Permission;
+    public bool IsAvailable(Config.PluginConfig cfg) => AvatarBridge.Available;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new()
     {
@@ -120,6 +122,7 @@ public sealed class AvatarFollowTool : ITool
     public string Name => "avatar_follow";
     public string Description => "让分身跟着某个玩家（默认跟你），并自动打附近的怪。会取消之前的 goto 和指定攻击目标。";
     public string Permission => AvatarToolHelper.Permission;
+    public bool IsAvailable(Config.PluginConfig cfg) => AvatarBridge.Available;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new()
     {
@@ -142,6 +145,8 @@ public sealed class AvatarFollowTool : ITool
         var target = string.IsNullOrWhiteSpace(name) ? caller : ToolArgs.FindOnline(name);
         if (target is null)
             return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = "找不到这个在线玩家" }));
+        if (!target.RealPlayer)
+            return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = "这个目标不是游戏内玩家" }));
 
         var ok = AvatarBridge.Follow(target);
         return new ToolResult(true, ToolArgs.Ok(new { ok, target = target.Name, avatar = AvatarToolHelper.Snapshot() }));
@@ -153,6 +158,7 @@ public sealed class AvatarGotoTool : ITool
     public string Name => "avatar_goto";
     public string Description => "让分身走到指定坐标（单位是格，不是像素）。距离超过 100 格会直接传送；到达后停在原地。会取消跟随。";
     public string Permission => AvatarToolHelper.Permission;
+    public bool IsAvailable(Config.PluginConfig cfg) => AvatarBridge.Available;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new()
     {
@@ -166,7 +172,14 @@ public sealed class AvatarGotoTool : ITool
         ["additionalProperties"] = false,
     };
 
-    public ToolValidation Validate(JsonElement args, TSPlayer caller) => new(true, null);
+    public ToolValidation Validate(JsonElement args, TSPlayer caller)
+    {
+        if (ToolArgs.Int(args, "x") is not { } x || ToolArgs.Int(args, "y") is not { } y)
+            return new ToolValidation(false, "需要 x 和 y（格）");
+        if (x < 0 || y < 0 || x >= Main.maxTilesX || y >= Main.maxTilesY)
+            return new ToolValidation(false, "坐标超出世界范围");
+        return new ToolValidation(true, null);
+    }
 
     public ToolResult Execute(JsonElement args, TSPlayer caller)
     {
@@ -186,8 +199,9 @@ public sealed class AvatarGotoTool : ITool
 public sealed class AvatarAttackTool : ITool
 {
     public string Name => "avatar_attack";
-    public string Description => "让分身去打附近最近的一只敌对 NPC。附近没有怪时返回 ok=false；会取消跟随和定点。";
+    public string Description => "让分身去打 60 格内最近的一只敌对 NPC。附近没有怪时返回 ok=false；会取消跟随和定点。";
     public string Permission => AvatarToolHelper.Permission;
+    public bool IsAvailable(Config.PluginConfig cfg) => AvatarBridge.Available;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false };
     public ToolValidation Validate(JsonElement args, TSPlayer caller) => new(true, null);
@@ -202,6 +216,7 @@ public sealed class AvatarAttackTool : ITool
 
         var target = Main.npc
             .Where(n => n is { active: true, friendly: false, townNPC: false } && n.life > 0)
+            .Where(n => n.Center.Distance(center) <= 60 * 16f)
             .OrderBy(n => n.Center.Distance(center))
             .FirstOrDefault();
 
@@ -218,6 +233,7 @@ public sealed class AvatarStopTool : ITool
     public string Name => "avatar_stop";
     public string Description => "让分身原地站住：取消跟随、指定攻击目标和定点，停在当前位置不再乱走。";
     public string Permission => AvatarToolHelper.Permission;
+    public bool IsAvailable(Config.PluginConfig cfg) => AvatarBridge.Available;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false };
     public ToolValidation Validate(JsonElement args, TSPlayer caller) => new(true, null);
@@ -235,8 +251,9 @@ public sealed class AvatarStopTool : ITool
 public sealed class AvatarScanTool : ITool
 {
     public string Name => "avatar_scan";
-    public string Description => "扫描分身周围：附近的怪、玩家、矿石。决定【守/撤/打/去挖】之前先看一眼。";
+    public string Description => "扫描分身周围：附近的怪、玩家、矿石。决定【守/撤/打】之前先看一眼；分身不能挖矿，只能告诉你矿的位置。";
     public string Permission => AvatarToolHelper.Permission;
+    public bool IsAvailable(Config.PluginConfig cfg) => AvatarBridge.Available;
     public bool RequiresRealPlayer => false;
 
     public JsonObject BuildParameters() => new()
@@ -244,7 +261,7 @@ public sealed class AvatarScanTool : ITool
         ["type"] = "object",
         ["properties"] = new JsonObject
         {
-            ["radius"] = new JsonObject { ["type"] = "integer", ["description"] = "扫描半径（格），10~60，默认 30", ["minimum"] = 10, ["maximum"] = 60 },
+            ["radius"] = new JsonObject { ["type"] = "integer", ["description"] = "扫描半径（格），10~60，默认 40", ["minimum"] = 10, ["maximum"] = 60 },
         },
         ["additionalProperties"] = false,
     };
@@ -256,7 +273,9 @@ public sealed class AvatarScanTool : ITool
         if (!AvatarToolHelper.Ready(out var error))
             return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = error }));
 
-        var s = AvatarBridge.Status()!;
+        var s = AvatarBridge.Status();
+        if (s is null)
+            return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = "分身不在了" }));
         var radius = Math.Clamp(ToolArgs.Int(args, "radius") ?? 40, 10, 60);
         var cx = (int)(s.X / 16f);
         var cy = (int)(s.Y / 16f);
@@ -371,6 +390,7 @@ public sealed class AvatarGuardTool : ITool
     public string Name => "avatar_guard";
     public string Description => "让分身驻守一片区域：站在中心点，附近的怪会去打，追远了会回来。不填坐标就守当前位置。";
     public string Permission => AvatarToolHelper.Permission;
+    public bool IsAvailable(Config.PluginConfig cfg) => AvatarBridge.Available;
     public bool RequiresRealPlayer => false;
 
     public JsonObject BuildParameters() => new()
@@ -392,7 +412,9 @@ public sealed class AvatarGuardTool : ITool
         if (!AvatarToolHelper.Ready(out var error))
             return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = error }));
 
-        var s = AvatarBridge.Status()!;
+        var s = AvatarBridge.Status();
+        if (s is null)
+            return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = "分身不在了" }));
         var x = ToolArgs.Int(args, "x") ?? (int)(s.X / 16f);
         var y = ToolArgs.Int(args, "y") ?? (int)(s.Y / 16f);
         var radius = Math.Clamp(ToolArgs.Int(args, "radius") ?? 15, 3, 60);
@@ -407,6 +429,7 @@ public sealed class AvatarPatrolTool : ITool
     public string Name => "avatar_patrol";
     public string Description => "让分身在几个点之间循环巡逻（2~6 个点，单位格）。路上遇到怪会先打，打完继续巡逻。";
     public string Permission => AvatarToolHelper.Permission;
+    public bool IsAvailable(Config.PluginConfig cfg) => AvatarBridge.Available;
     public bool RequiresRealPlayer => false;
 
     public JsonObject BuildParameters() => new()
@@ -442,6 +465,23 @@ public sealed class AvatarPatrolTool : ITool
             return new ToolValidation(false, "缺少 points 数组");
         if (points.GetArrayLength() < 2 || points.GetArrayLength() > 6)
             return new ToolValidation(false, "巡逻点需要 2~6 个");
+
+        foreach (var point in points.EnumerateArray())
+        {
+            if (point.ValueKind != JsonValueKind.Object ||
+                !point.TryGetProperty("x", out var px) || px.ValueKind != JsonValueKind.Number ||
+                !point.TryGetProperty("y", out var py) || py.ValueKind != JsonValueKind.Number)
+            {
+                return new ToolValidation(false, "每个巡逻点都要有数字 x/y");
+            }
+
+            if (px.GetInt32() < 0 || py.GetInt32() < 0 ||
+                px.GetInt32() >= Main.maxTilesX || py.GetInt32() >= Main.maxTilesY)
+            {
+                return new ToolValidation(false, "巡逻点超出世界范围");
+            }
+        }
+
         return new ToolValidation(true, null);
     }
 
@@ -469,6 +509,7 @@ public sealed class AvatarReturnTool : ITool
     public string Name => "avatar_return";
     public string Description => "让分身返回世界出生点，到了之后自动驻守。";
     public string Permission => AvatarToolHelper.Permission;
+    public bool IsAvailable(Config.PluginConfig cfg) => AvatarBridge.Available;
     public bool RequiresRealPlayer => false;
     public JsonObject BuildParameters() => new() { ["type"] = "object", ["properties"] = new JsonObject(), ["additionalProperties"] = false };
     public ToolValidation Validate(JsonElement args, TSPlayer caller) => new(true, null);
@@ -488,6 +529,7 @@ public sealed class AvatarPvpTool : ITool
     public string Name => "avatar_pvp";
     public string Description => "开关分身的 PvP 状态。打开后其他玩家可以攻击它（它不会主动打玩家）；关闭则回到和平状态。";
     public string Permission => AvatarToolHelper.Permission;
+    public bool IsAvailable(Config.PluginConfig cfg) => AvatarBridge.Available;
     public bool RequiresRealPlayer => false;
 
     public JsonObject BuildParameters() => new()

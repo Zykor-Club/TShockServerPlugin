@@ -210,17 +210,34 @@ public sealed class AIAgentPlugin : TerrariaPlugin
 
     private static void OnPlayerDamage(object? sender, GetDataHandlers.PlayerDamageEventArgs args)
     {
-        var status = Avatar.AvatarBridge.Status();
-        if (status is null || args.Player is null) return;
-        if (!string.Equals(args.Player.Name, status.Name, StringComparison.Ordinal)) return;
+        if (args.Player is null) return;
 
-        var source = Avatar.AvatarDamage.ResolveSource(args.PlayerDeathReason);
-        Avatar.AvatarDamage.Record(args.Damage, source, args.PVP);
-
-        if (PluginState.Config.DebugLog)
+        // 先按名字前缀挡掉普通玩家，避免每次伤害都投一次主线程
+        var prefix = PluginState.Config.Chat.FakeNamePrefix;
+        if (string.IsNullOrEmpty(prefix) || !args.Player.Name.StartsWith(prefix, StringComparison.Ordinal))
         {
-            PluginLog.Info($"分身受伤: {args.Damage} 来自 {source} pvp={args.PVP}");
+            return;
         }
+
+        var victim = args.Player.Name;
+        var damage = args.Damage;
+        var pvp = args.PVP;
+        var reason = args.PlayerDeathReason;
+
+        // 包线程只抓数据，判定和读取世界放到主线程
+        PluginState.MainThread.Post(() =>
+        {
+            var status = Avatar.AvatarBridge.Status();
+            if (status is null || !string.Equals(victim, status.Name, StringComparison.Ordinal)) return;
+
+            var source = Avatar.AvatarDamage.ResolveSource(reason);
+            Avatar.AvatarDamage.Record(damage, source, pvp);
+
+            if (PluginState.Config.DebugLog)
+            {
+                PluginLog.Info($"分身受伤: {damage} 来自 {source} pvp={pvp}");
+            }
+        });
     }
 
     private static Wiki.IWikiSource LoadWiki()

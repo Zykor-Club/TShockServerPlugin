@@ -442,9 +442,20 @@ internal class MyCmd
             SpeakEnabled = Config.Speak,
         };
 
-        DesiredAvatar = f.Name;
-        ReconnectBackoff = 600;
-        NextReconnectTick = 0;
+        // 必须先注册处理器，再建立连接；否则 LoadPlayer 可能早于注册到达
+        dp.On<LoadPlayer>(slotInfo =>
+        {
+            Fakes[slotInfo.PlayerSlot] = dp;
+        });
+
+        dp.On<StartPlaying>(_ =>
+        {
+            var defaultRole = RoleMgr.Load("默认");
+            if (defaultRole != null)
+                ApplyRole(dp, defaultRole.Items);
+            RepelFake(dp);
+        });
+
         ConnectingUntil = Tick + 600;
 
         try
@@ -457,19 +468,6 @@ internal class MyCmd
             dp.Close();
             return null;
         }
-
-        dp.On<StartPlaying>(_ =>
-        {
-            var defaultRole = RoleMgr.Load("默认");
-            if (defaultRole != null)
-                ApplyRole(dp, defaultRole.Items);
-            RepelFake(dp);
-        });
-
-        dp.On<LoadPlayer>(p =>
-        {
-            Fakes[p.PlayerSlot] = dp;
-        });
 
         return dp;
     }
