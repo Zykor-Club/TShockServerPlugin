@@ -70,6 +70,15 @@ internal class DummyPlayer
     /// <summary>是否允许说话（默认开）。</summary>
     public bool SpeakEnabled { get; set; } = true;
 
+    /// <summary>是否被判定为卡住（有目标但长时间没位移）。</summary>
+    public bool Stuck { get; set; }
+
+    /// <summary>连续没位移的秒数。</summary>
+    public int StuckSeconds { get; set; }
+
+    /// <summary>上一秒的位置，用于卡住检测。</summary>
+    public Vector2 StuckCheckPos { get; set; }
+
     private readonly object _sendGate = new();
     public long LastTP;                   // 上次超距离传送帧
     public long LastJump;                 // 上次跳跃

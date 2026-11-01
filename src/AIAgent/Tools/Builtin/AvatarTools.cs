@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Terraria;
+using Terraria.ID;
 using TShockAPI;
 using AIAgent.Avatar;
 using AIAgent.Core;
@@ -47,6 +48,8 @@ internal static class AvatarToolHelper
             speaking = s.Speaking,
             follow = s.Follow,
             holding = s.Holding,
+            stuck = s.Stuck,
+            stuckSeconds = s.StuckSeconds,
         };
     }
 }
@@ -220,4 +223,137 @@ public sealed class AvatarStopTool : ITool
         var ok = AvatarBridge.Stop();
         return new ToolResult(true, ToolArgs.Ok(new { ok, avatar = AvatarToolHelper.Snapshot() }));
     }
+}
+
+public sealed class AvatarScanTool : ITool
+{
+    public string Name => "avatar_scan";
+    public string Description => "扫描分身周围：附近的怪、玩家、矿石。决定【守/撤/打/去挖】之前先看一眼。";
+    public string Permission => AvatarToolHelper.Permission;
+    public bool RequiresRealPlayer => false;
+
+    public JsonObject BuildParameters() => new()
+    {
+        ["type"] = "object",
+        ["properties"] = new JsonObject
+        {
+            ["radius"] = new JsonObject { ["type"] = "integer", ["description"] = "扫描半径（格），10~60，默认 30", ["minimum"] = 10, ["maximum"] = 60 },
+        },
+        ["additionalProperties"] = false,
+    };
+
+    public ToolValidation Validate(JsonElement args, TSPlayer caller) => new(true, null);
+
+    public ToolResult Execute(JsonElement args, TSPlayer caller)
+    {
+        if (!AvatarToolHelper.Ready(out var error))
+            return new ToolResult(true, ToolArgs.Ok(new { ok = false, note = error }));
+
+        var s = AvatarBridge.Status()!;
+        var radius = Math.Clamp(ToolArgs.Int(args, "radius") ?? 30, 10, 60);
+        var cx = (int)(s.X / 16f);
+        var cy = (int)(s.Y / 16f);
+
+        var monsters = Main.npc
+            .Where(n => n is { active: true, friendly: false, townNPC: false } && n.life > 0)
+            .Select(n => new { npc = n, dist = Math.Abs((int)(n.Center.X / 16f) - cx) + Math.Abs((int)(n.Center.Y / 16f) - cy) })
+            .Where(x => x.dist <= radius)
+            .OrderBy(x => x.dist)
+            .Take(5)
+            .Select(x => new
+            {
+                name = Lang.GetNPCNameValue(x.npc.type),
+                x = (int)(x.npc.Center.X / 16f),
+                y = (int)(x.npc.Center.Y / 16f),
+                life = x.npc.life,
+                distance = x.dist,
+            })
+            .ToArray();
+
+        var players = TShock.Players
+            .Where(p => p is { Active: true } && !string.Equals(p.Name, s.Name, StringComparison.Ordinal))
+            .Select(p => new { p, dist = Math.Abs((int)(p.TPlayer.position.X / 16f) - cx) + Math.Abs((int)(p.TPlayer.position.Y / 16f) - cy) })
+            .Where(x => x.dist <= radius)
+            .OrderBy(x => x.dist)
+            .Take(5)
+            .Select(x => new
+            {
+                name = x.p.Name,
+                x = (int)(x.p.TPlayer.position.X / 16f),
+                y = (int)(x.p.TPlayer.position.Y / 16f),
+                life = x.p.TPlayer.statLife,
+                distance = x.dist,
+            })
+            .ToArray();
+
+        var ores = new Dictionary<int, (int Count, int X, int Y)>();
+        for (var x = cx - radius; x <= cx + radius; x++)
+        {
+            for (var y = cy - radius; y <= cy + radius; y++)
+            {
+                if (!WorldGen.InWorld(x, y, 1)) continue;
+                var tile = Main.tile[x, y];
+                if (!tile.active() || !TileID.Sets.Ore[tile.type]) continue;
+
+                var type = (int)tile.type;
+                if (!ores.TryGetValue(type, out var found))
+                {
+                    ores[type] = (1, x, y);
+                }
+                else
+                {
+                    ores[type] = (found.Count + 1, found.X, found.Y);
+                }
+            }
+        }
+
+        var oreList = ores
+            .Select(kv => new
+            {
+                name = OreName(kv.Key),
+                count = kv.Value.Count,
+                nearest = new { x = kv.Value.X, y = kv.Value.Y },
+            })
+            .OrderByDescending(o => o.count)
+            .Take(6)
+            .ToArray();
+
+        return new ToolResult(true, ToolArgs.Ok(new
+        {
+            ok = true,
+            position = new { x = cx, y = cy },
+            life = s.Life,
+            lifeMax = s.LifeMax,
+            stuck = s.Stuck,
+            radius,
+            monsters,
+            players,
+            ores = oreList,
+        }));
+    }
+
+    private static string OreName(int type) => type switch
+    {
+        TileID.Copper => "铜矿",
+        TileID.Tin => "锡矿",
+        TileID.Iron => "铁矿",
+        TileID.Lead => "铅矿",
+        TileID.Silver => "银矿",
+        TileID.Tungsten => "钨矿",
+        TileID.Gold => "金矿",
+        TileID.Platinum => "铂金矿",
+        TileID.Demonite => "魔矿",
+        TileID.Crimtane => "猩红矿",
+        TileID.Meteorite => "陨石",
+        TileID.Hellstone => "狱石",
+        TileID.Cobalt => "钴矿",
+        TileID.Palladium => "钯金矿",
+        TileID.Mythril => "秘银矿",
+        TileID.Orichalcum => "山铜矿",
+        TileID.Adamantite => "精金矿",
+        TileID.Titanium => "钛金矿",
+        TileID.Chlorophyte => "叶绿矿",
+        TileID.LunarOre => "夜明矿",
+        _ => TileID.Search.GetName(type),
+    };
 }

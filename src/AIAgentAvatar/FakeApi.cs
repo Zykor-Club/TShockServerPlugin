@@ -18,7 +18,9 @@ public sealed record AvatarStatus(
     int LifeMax,
     bool Speaking,
     string? Follow,
-    bool Holding);
+    bool Holding,
+    bool Stuck,
+    int StuckSeconds);
 
 /// <summary>
 /// 给外部插件（AIAgent）用的门面：只管理一个"分身"。
@@ -44,7 +46,9 @@ public static class FakeApi
             plr?.statLifeMax2 ?? 0,
             dp.SpeakEnabled,
             dp.Follow?.Name,
-            dp.HoldPos);
+            dp.HoldPos,
+            dp.Stuck,
+            dp.StuckSeconds);
     }
 
     public static AvatarStatus? Spawn(string? name = null)
@@ -86,6 +90,7 @@ public static class FakeApi
         dp.Follow = target;
         dp.HoldPos = false;
         dp.TargetNpc = -1;
+        ResetStuck(dp);
         return true;
     }
 
@@ -99,6 +104,7 @@ public static class FakeApi
         dp.HoldPos = true;
         dp.RoamPos = new Vector2(worldX, worldY);
         dp.NextRoamTime = System.DateTime.UtcNow.AddMinutes(10);
+        ResetStuck(dp);
         return true;
     }
 
@@ -114,6 +120,7 @@ public static class FakeApi
         dp.Follow = null;
         dp.HoldPos = false;
         dp.TargetNpc = npcSlot;
+        ResetStuck(dp);
         return true;
     }
 
@@ -147,6 +154,13 @@ public static class FakeApi
 
         MyCmd.ApplyRole(dp, role.Items);
         return true;
+    }
+
+    private static void ResetStuck(DummyPlayer dp)
+    {
+        dp.Stuck = false;
+        dp.StuckSeconds = 0;
+        dp.StuckCheckPos = dp.TSPlayer?.TPlayer?.position ?? Vector2.Zero;
     }
 
     private static DummyPlayer? Current()

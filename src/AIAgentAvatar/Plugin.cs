@@ -293,6 +293,42 @@ public class Plugin(Main game) : TerrariaPlugin(game)
             }
         }
 
+        // 每秒检测一次是否卡住（有目标却不位移）
+        if (Tick % 60 == 0)
+        {
+            for (var i = 0; i < Fakes.Length; i++)
+            {
+                var dp = Fakes[i];
+                if (dp is null || !dp.Active || !dp.IsPlaying) continue;
+
+                var plr = dp.TSPlayer?.TPlayer;
+                if (plr is null) continue;
+
+                var hasGoal = dp.HoldPos || dp.Follow is not null || dp.TargetNpc >= 0;
+                var moved = plr.position.Distance(dp.StuckCheckPos);
+                dp.StuckCheckPos = plr.position;
+
+                if (!hasGoal || moved > 8f)
+                {
+                    dp.StuckSeconds = 0;
+                    dp.Stuck = false;
+                    continue;
+                }
+
+                // 已经在目标点附近就不算卡
+                if (dp.HoldPos && dp.RoamPos != Microsoft.Xna.Framework.Vector2.Zero &&
+                    plr.position.Distance(dp.RoamPos) < 32f)
+                {
+                    dp.StuckSeconds = 0;
+                    dp.Stuck = false;
+                    continue;
+                }
+
+                dp.StuckSeconds++;
+                dp.Stuck = dp.StuckSeconds >= 5;
+            }
+        }
+
         // 每10秒清理弹幕记录
         if (Tick % 600 == 0)
         {

@@ -17,7 +17,9 @@ public sealed record AvatarSnapshot(
     int LifeMax,
     bool Speaking,
     string? Follow,
-    bool Holding);
+    bool Holding,
+    bool Stuck,
+    int StuckSeconds);
 
 /// <summary>
 /// 通过反射调用假人插件的 FakeApi，避免 AIAgent 硬依赖 AIAgentAvatar.dll。
@@ -49,7 +51,9 @@ public static class AvatarBridge
             Convert.ToInt32(P("LifeMax") ?? 0),
             Convert.ToBoolean(P("Speaking") ?? false),
             P("Follow")?.ToString(),
-            Convert.ToBoolean(P("Holding") ?? false));
+            Convert.ToBoolean(P("Holding") ?? false),
+            Convert.ToBoolean(P("Stuck") ?? false),
+            Convert.ToInt32(P("StuckSeconds") ?? 0));
     }
 
     public static bool Say(string text) => Call("Say", text) is true;
