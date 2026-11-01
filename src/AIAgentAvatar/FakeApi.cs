@@ -95,6 +95,9 @@ public static class FakeApi
         var dp = Current();
         if (dp is null) return false;
 
+                dp.Goal = "none";
+        dp.PatrolPoints.Clear();
+        dp.PatrolIndex = 0;
         dp.Follow = target;
         dp.HoldPos = false;
         dp.TargetNpc = -1;
@@ -107,6 +110,9 @@ public static class FakeApi
         var dp = Current();
         if (dp is null) return false;
 
+                dp.Goal = "none";
+        dp.PatrolPoints.Clear();
+        dp.PatrolIndex = 0;
         dp.Follow = null;
         dp.TargetNpc = -1;
         dp.HoldPos = true;
@@ -125,6 +131,9 @@ public static class FakeApi
         var npc = Main.npc[npcSlot];
         if (npc is null || !npc.active || npc.friendly) return false;
 
+                dp.Goal = "none";
+        dp.PatrolPoints.Clear();
+        dp.PatrolIndex = 0;
         dp.Follow = null;
         dp.HoldPos = false;
         dp.TargetNpc = npcSlot;
@@ -201,6 +210,9 @@ public static class FakeApi
         if (dp is null) return false;
 
         // 停止 = 原地站住，而不是继续漫游
+                dp.Goal = "none";
+        dp.PatrolPoints.Clear();
+        dp.PatrolIndex = 0;
         var pos = dp.TSPlayer?.TPlayer?.position ?? Vector2.Zero;
         dp.Follow = null;
         dp.TargetNpc = -1;
